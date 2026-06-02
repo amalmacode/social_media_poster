@@ -1,0 +1,104 @@
+<div class="overflow-hidden rounded-md border border-black/10">
+  <table class="w-full text-left text-sm">
+    <thead class="bg-black/[0.03] text-xs uppercase text-black/50">
+      <tr>
+        <th class="px-3 py-2">Post</th>
+        <th class="px-3 py-2">Status</th>
+        <th class="px-3 py-2">Platforms</th>
+        <th class="px-3 py-2">Date</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-black/10 bg-white">
+      <% if (!posts.length) { %>
+        <tr><td colspan="5" class="px-3 py-6 text-center text-black/55">No posts yet.</td></tr>
+      <% } %>
+      <% posts.forEach(function(post) { %>
+        <%
+          const statusLabel = post.status.replace('_', ' ');
+          const statusClass = {
+            success:         'bg-emerald-50 text-emerald-700',
+            partial_success: 'bg-amber-50 text-amber-700',
+            failed:          'bg-red-50 text-red-700',
+            processing:      'bg-blue-50 text-blue-700',
+            pending:         'bg-slate-100 text-slate-600',
+            draft:           'bg-slate-100 text-slate-500'
+          }[post.status] || 'bg-slate-100 text-slate-600';
+          const targets = post.platform_targets || [];
+        %>
+        <tr class="align-top">
+          <td class="max-w-[200px] truncate px-3 py-3"><%= post.caption || 'Untitled post' %></td>
+          <td class="px-3 py-3">
+            <span class="inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize <%= statusClass %>"><%= statusLabel %></span>
+          </td>
+          <td class="px-3 py-3">
+            <% if (!targets.length) { %>
+              <span class="text-xs text-black/40">—</span>
+            <% } else { %>
+              <div class="flex flex-col gap-1.5">
+                <% targets.forEach(function(t) { %>
+                  <%
+                    const chipClass = t.status === 'success'    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : t.status === 'failed'     ? 'border-red-200 bg-red-50 text-red-700'
+                                    : t.status === 'processing' ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                    :                             'border-slate-200 bg-slate-50 text-slate-600';
+                    const icon = t.status === 'success'    ? '✓'
+                               : t.status === 'failed'     ? '✕'
+                               : t.status === 'processing' ? '…'
+                               :                             '·';
+                  %>
+                  <div>
+                    <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium capitalize <%= chipClass %>">
+                      <span><%= t.platform %></span>
+                      <span class="text-black/40">@<%= t.username %></span>
+                      <span><%= icon %></span>
+                    </span>
+                    <% if (t.status === 'failed' && t.error_message) { %>
+                      <p class="mt-0.5 max-w-[240px] truncate text-xs text-red-500" title="<%= t.error_message %>"><%= t.error_message %></p>
+                    <% } %>
+                  </div>
+                <% }) %>
+              </div>
+            <% } %>
+          </td>
+          <td class="px-3 py-3 text-black/55">
+            <% if (post.status === 'pending' && post.scheduled_for) { %>
+              <%
+                // Format to datetime-local value: "YYYY-MM-DDTHH:MM"
+                const d = new Date(post.scheduled_for);
+                const pad = (n) => String(n).padStart(2, '0');
+                const dtLocal = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) +
+                                'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+              %>
+              <div class="flex items-center gap-1">
+                <span id="sched-label-<%= post.id %>" class="text-xs"><%= d.toLocaleString() %></span>
+                <button type="button" data-toggle="sched-form-<%= post.id %>"
+                        class="rounded p-0.5 text-black/30 hover:text-black/70" title="Edit schedule">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              </div>
+              <form id="sched-form-<%= post.id %>" method="post"
+                    action="/posts/<%= post.id %>/reschedule"
+                    class="hidden mt-1 flex items-center gap-1">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="datetime-local" name="scheduledFor" value="<%= dtLocal %>"
+                       class="rounded border border-black/15 px-2 py-0.5 text-xs">
+                <button type="submit" class="rounded bg-mint px-2 py-0.5 text-xs font-medium text-white">Save</button>
+                <button type="button" data-hide="sched-form-<%= post.id %>"
+                        class="rounded border border-black/15 px-2 py-0.5 text-xs">✕</button>
+              </form>
+            <% } else { %>
+              <%= new Date(post.scheduled_for || post.created_at).toLocaleString() %>
+            <% } %>
+          </td>
+          <td class="px-3 py-3 text-right">
+            <form method="post" action="/posts/<%= post.id %>?_method=DELETE" data-confirm="Remove this post?">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">Remove</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>

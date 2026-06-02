@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><%= title ? `${title} | Publisher` : 'Publisher' %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { theme: { extend: { colors: { ink: '#16201c', mint: '#27b184', coral: '#f26b5b' } } } }
+    </script>
+  </head>
+  <body class="min-h-screen bg-[#f7f8f5] text-ink">
+    <% if (currentUser) { %><%- include('../partials/nav') %><% } %>
+    <main class="<%= currentUser ? 'mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8' : '' %>">
+      <%- include('../partials/flash') %>
+      <%- body %>
+    </main>
+    <script src="/public/js/app.js?v=<%= Date.now() %>"></script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+<header class="border-b border-black/10 bg-white">
+  <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <a href="/" class="text-lg font-semibold tracking-tight">Publisher</a>
+    <nav class="hidden items-center gap-5 text-sm font-medium text-black/65 md:flex">
+      <a class="hover:text-ink" href="/">Dashboard</a>
+      <a class="hover:text-ink" href="/posts/new">Create</a>
+      <a class="hover:text-ink" href="/scheduled">Scheduled</a>
+      <a class="hover:text-ink" href="/history">History</a>
+      <a class="hover:text-ink" href="/accounts">Accounts</a>
+      <a class="hover:text-ink" href="/settings">Settings</a>
+    </nav>
+    <form method="post" action="/auth/logout">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="rounded-md border border-black/10 px-3 py-2 text-sm font-medium hover:bg-black/5">Log out</button>
+    </form>
+  </div>
+</header>

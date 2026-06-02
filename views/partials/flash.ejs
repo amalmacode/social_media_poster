@@ -1,0 +1,8 @@
+<div class="fixed right-4 top-4 z-50 space-y-2" data-toasts>
+  <% (flash.success || []).forEach(function(message) { %>
+    <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-sm"><%= message %></div>
+  <% }) %>
+  <% (flash.error || []).forEach(function(message) { %>
+    <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-sm"><%= message %></div>
+  <% }) %>
+</div>
