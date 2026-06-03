@@ -48,6 +48,14 @@ app.use(helmet({
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, env.uploadDir)));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 500 }));
+
+// Prevent Cloudflare (and any proxy) from caching dynamic HTML responses
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/public') && !req.path.startsWith('/uploads')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  }
+  next();
+});
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
