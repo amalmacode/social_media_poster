@@ -249,6 +249,100 @@ document.querySelectorAll('input[name="publishMode"]').forEach((input) => {
   document.addEventListener('mouseup', () => { dragging = false; resizing = false; });
 })();
 
+// ── Emoji Picker ──────────────────────────────────────────────────────────────
+(function () {
+  const toggle = document.getElementById('emoji-toggle');
+  const picker = document.getElementById('emoji-picker');
+  const textarea = document.querySelector('[data-caption]');
+  if (!toggle || !picker || !textarea) return;
+
+  const CATS = [
+    { icon: '😊', label: 'Smileys', e: ['😀','😂','🤣','😊','😍','🥰','😘','😎','🤩','😁','😉','😋','🤗','🥳','😜','😆','🙃','🤭','😅','😭','😢','😤','😡','🤔','😮','😱','🤯','🥴','😴','🤑','🙄','😬','😏','🤫','🤐','😐','😑','🫠','🥹','😇','🫡','🤠'] },
+    { icon: '❤️', label: 'Hearts', e: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💕','💞','💓','💗','💖','💝','💘','💌','😻','🫶','💑','💏','💟','💔','❣️','💋','🥰','😍'] },
+    { icon: '👍', label: 'Hands', e: ['👍','👎','👌','🤌','🤏','✌️','🤞','🤙','👋','🙌','🤝','🙏','💪','🤲','👏','✊','👊','🤛','🤜','🫵','🤘','🤟','☝️','👆','👇','👉','👈','🫱','🫲','🖐️','✋','🤚'] },
+    { icon: '🌸', label: 'Nature', e: ['🌸','🌺','🌻','🌹','🌷','🌱','🌿','🍀','🌴','🌊','🔥','🌙','⭐','🌟','✨','☀️','🌈','❄️','🌪️','🌩️','⛅','🦋','🐝','🐶','🐱','🐰','🐻','🦊','🐼','🦁','🐯','🦄','🌍','🌎','🌏','🏔️','🌋','🦅','🦉','🦋','🐬','🦈'] },
+    { icon: '🍕', label: 'Food', e: ['🍕','🍔','🌮','🌯','🍜','🍣','🍱','🥗','🍖','🍗','🥩','🍞','🥐','🧀','🥚','🍳','🥞','🍰','🎂','🧁','🍩','🍪','🍫','🍦','🍺','🥂','🍷','☕','🧋','🥤','🧃','🍎','🍊','🍋','🍇','🍓','🥝','🍑','🥭','🍒','🥑','🌽','🍄','🫐'] },
+    { icon: '⚽', label: 'Activities', e: ['⚽','🏀','🏈','⚾','🎾','🏐','🎱','🏓','🥊','🎮','🎵','🎶','🎸','🎹','🎺','🥁','🎤','🎭','🎬','📸','✍️','📚','🏋️','🧘','🏄','🏊','🚴','🎯','🎲','🏆','🥇','🎗️','🎪','🎠','🎡','🎢','🧗','🤸','⛷️','🏂'] },
+    { icon: '✈️', label: 'Travel', e: ['✈️','🚀','🚗','🚕','🚌','🚂','⛵','🚁','🏠','🏡','🏖️','🏝️','🏔️','🗺️','🌅','🌄','🌃','🌆','🌉','🗼','🗽','🗿','🏯','🏰','⛩️','🕌','🎡','🎢','🛕','🏟️','🌁'] },
+    { icon: '💡', label: 'Objects', e: ['💡','🎉','🎊','🎁','🔑','💎','💰','💳','📱','💻','📷','📹','🎥','📺','🔔','📢','📣','💬','💭','📝','📌','📎','🔗','✂️','🔧','🔨','⚙️','🧲','💊','🔭','🔬','🧪','📊','📈','📉','🏮','🪔','🧨','🪄','🎭'] },
+    { icon: '✅', label: 'Symbols', e: ['✅','❌','❓','❗','⚠️','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⬜','💯','🆕','🆙','🆒','🆓','✨','🌟','💫','⭐','🎆','🎇','🏅','🎖️','🎀','♻️','☑️','🔰','➕','➖','➗','✖️','🔁','🔂','▶️','⏭️','🔝','🔛','🔜','🔚'] },
+  ];
+
+  // Build picker DOM
+  const wrap = document.createElement('div');
+  wrap.className = 'flex flex-col';
+
+  // Category tabs
+  const tabs = document.createElement('div');
+  tabs.className = 'flex border-b border-black/10 overflow-x-auto';
+  tabs.style.flexShrink = '0';
+  CATS.forEach((cat, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.title = cat.label;
+    btn.textContent = cat.icon;
+    btn.className = 'cat-tab flex-shrink-0 px-2.5 py-2 text-base hover:bg-black/5 transition-colors' + (i === 0 ? ' border-b-2 border-mint' : '');
+    btn.dataset.cat = i;
+    tabs.appendChild(btn);
+  });
+  wrap.appendChild(tabs);
+
+  // Emoji grid
+  const grid = document.createElement('div');
+  grid.className = 'overflow-y-auto p-1.5 flex flex-wrap gap-0.5';
+  grid.style.cssText = 'flex:1;min-height:0;max-height:228px;overflow-y:auto';
+  wrap.appendChild(grid);
+
+  picker.appendChild(wrap);
+
+  let activeCat = 0;
+
+  function renderCat(idx) {
+    activeCat = idx;
+    tabs.querySelectorAll('.cat-tab').forEach((t, i) => {
+      t.classList.toggle('border-b-2', i === idx);
+      t.classList.toggle('border-mint', i === idx);
+    });
+    grid.innerHTML = CATS[idx].e.map((em) =>
+      `<button type="button" class="emoji-btn w-8 h-8 text-lg flex items-center justify-center rounded hover:bg-black/5 cursor-pointer" data-em="${em}">${em}</button>`
+    ).join('');
+  }
+
+  renderCat(0);
+
+  tabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.cat-tab');
+    if (btn) renderCat(Number(btn.dataset.cat));
+  });
+
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.emoji-btn');
+    if (!btn) return;
+    const em = btn.dataset.em;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    textarea.value = textarea.value.substring(0, start) + em + textarea.value.substring(end);
+    const pos = start + em.length;
+    textarea.selectionStart = textarea.selectionEnd = pos;
+    textarea.dispatchEvent(new Event('input'));
+    textarea.focus();
+  });
+
+  function openPicker() { picker.classList.remove('hidden'); }
+  function closePicker() { picker.classList.add('hidden'); }
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    picker.classList.contains('hidden') ? openPicker() : closePicker();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!picker.contains(e.target) && e.target !== toggle && !toggle.contains(e.target)) {
+      closePicker();
+    }
+  });
+})();
+
 const dropzone = document.querySelector('[data-dropzone]');
 if (dropzone) {
   const input = dropzone.querySelector('input[type="file"]');

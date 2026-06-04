@@ -60,7 +60,15 @@
         <p class="text-sm text-black/55">One composer with platform-aware fields.</p>
       </div>
     </div>
-    <label class="mt-5 block text-sm font-medium">Caption</label>
+    <div class="mt-5 flex items-center justify-between">
+      <label class="block text-sm font-medium">Caption</label>
+      <div class="relative">
+        <button type="button" id="emoji-toggle" class="flex items-center gap-1.5 rounded-md border border-black/10 px-2.5 py-1 text-sm hover:bg-black/5 transition-colors" title="Insert emoji">
+          😊 <span class="text-xs text-black/55">Emoji</span>
+        </button>
+        <div id="emoji-picker" class="hidden absolute z-30 right-0 top-full mt-1 w-80 rounded-xl border border-black/10 bg-white shadow-xl" style="max-height:300px;overflow:hidden"></div>
+      </div>
+    </div>
     <textarea name="caption" rows="7" maxlength="5000" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" data-caption></textarea>
     <p class="mt-1 text-xs text-black/50"><span data-caption-count>0</span> characters. Instagram limit is 2,200.</p>
     <div class="mt-5">
