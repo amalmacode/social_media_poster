@@ -3,7 +3,7 @@ const path = require('path');
 const BasePlatformService = require('./basePlatformService');
 const accountModel = require('../../models/accountModel');
 const { env } = require('../../config/env');
-const { toPublicUrl } = require('../storage/localStorageService');
+const { toSignedPublicUrl } = require('../storage/localStorageService');
 
 const TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
 const API = 'https://open.tiktokapis.com/v2';
@@ -132,8 +132,8 @@ class TikTokService extends BasePlatformService {
   async publishPhoto(account, images, title, privacyLevel) {
     if (!images.length) this.permanent('No images found for TikTok photo post.');
     const photoImages = images.slice(0, 35).map((img) => {
-      const url = toPublicUrl(path.resolve(process.cwd(), img.file_path));
-      if (!url) this.permanent('TikTok photo posting requires PUBLIC_MEDIA_BASE_URL to be set (Cloudflare Tunnel).');
+      const url = toSignedPublicUrl(img.file_path);
+      if (!url) this.permanent('TikTok photo posting requires APP_URL or PUBLIC_MEDIA_BASE_URL to be set.');
       return url;
     });
 

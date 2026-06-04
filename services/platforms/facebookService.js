@@ -1,7 +1,7 @@
 const path = require('path');
 const BasePlatformService = require('./basePlatformService');
 const { env } = require('../../config/env');
-const { toPublicUrl } = require('../storage/localStorageService');
+const { toSignedPublicUrl } = require('../storage/localStorageService');
 
 class FacebookService extends BasePlatformService {
   constructor() {
@@ -60,8 +60,8 @@ class FacebookService extends BasePlatformService {
   }
 
   requirePublicUrl(media) {
-    const url = toPublicUrl(path.resolve(process.cwd(), media.file_path));
-    if (!url) this.permanent('Facebook publishing requires PUBLIC_MEDIA_BASE_URL to be set.');
+    const url = toSignedPublicUrl(media.file_path);
+    if (!url) this.permanent('Facebook publishing requires APP_URL or PUBLIC_MEDIA_BASE_URL to be set.');
     return url;
   }
 }

@@ -2,7 +2,7 @@ const path = require('path');
 const BasePlatformService = require('./basePlatformService');
 const accountModel = require('../../models/accountModel');
 const { env } = require('../../config/env');
-const { toPublicUrl } = require('../storage/localStorageService');
+const { toSignedPublicUrl } = require('../storage/localStorageService');
 
 function isPublicMediaUrl(mediaUrl) {
   try {
@@ -341,14 +341,8 @@ class InstagramService extends BasePlatformService {
   }
 
   requirePublicUrl(media) {
-    const mediaUrl = toPublicUrl(path.resolve(process.cwd(), media.file_path));
-    if (!mediaUrl) this.permanent('Instagram requires PUBLIC_MEDIA_BASE_URL for publicly accessible media URLs.');
-    if (!isPublicMediaUrl(mediaUrl)) {
-      this.permanent(`Instagram requires a public HTTPS media URL. Current URL is not public: ${mediaUrl}`, {
-        mediaUrl,
-        hint: 'Set PUBLIC_MEDIA_BASE_URL to an HTTPS tunnel/domain such as ngrok, Cloudflare Tunnel, S3, or R2.'
-      });
-    }
+    const mediaUrl = toSignedPublicUrl(media.file_path);
+    if (!mediaUrl) this.permanent('Instagram requires APP_URL or PUBLIC_MEDIA_BASE_URL to be set.');
     return mediaUrl;
   }
 

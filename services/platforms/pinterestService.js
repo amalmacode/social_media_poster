@@ -3,7 +3,7 @@ const path = require('path');
 const BasePlatformService = require('./basePlatformService');
 const accountModel = require('../../models/accountModel');
 const { env } = require('../../config/env');
-const { toPublicUrl } = require('../storage/localStorageService');
+const { toSignedPublicUrl } = require('../storage/localStorageService');
 
 const API = 'https://api.pinterest.com/v5';
 const SCOPES = 'boards:read,pins:write,user_accounts:read';
@@ -135,7 +135,7 @@ class PinterestService extends BasePlatformService {
     }
 
     // Step 4 — create the pin
-    const coverUrl = media.thumbnail_path ? toPublicUrl(path.resolve(process.cwd(), media.thumbnail_path)) : undefined;
+    const coverUrl = media.thumbnail_path ? toSignedPublicUrl(media.thumbnail_path) : undefined;
     const body = {
       board_id: payload.boardId,
       title: payload.title || '',
@@ -154,8 +154,8 @@ class PinterestService extends BasePlatformService {
   }
 
   requirePublicUrl(media) {
-    const url = toPublicUrl(path.resolve(process.cwd(), media.file_path));
-    if (!url) this.permanent('Pinterest publishing requires PUBLIC_MEDIA_BASE_URL to be set.');
+    const url = toSignedPublicUrl(media.file_path);
+    if (!url) this.permanent('Pinterest publishing requires APP_URL or PUBLIC_MEDIA_BASE_URL to be set.');
     return url;
   }
 }

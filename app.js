@@ -22,6 +22,7 @@ const accountRoutes = require('./routes/accountRoutes');
 const debugRoutes = require('./routes/debugRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const legalRoutes = require('./routes/legalRoutes');
+const mediaPublicRoutes = require('./routes/mediaPublicRoutes');
 const { notFound, errorHandler } = require('./middlewares/errorMiddleware');
 
 const app = express();
@@ -107,6 +108,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/', mediaPublicRoutes);
 app.use('/', dashboardRoutes);
 app.use('/auth', authRoutes);
 app.use('/posts', postRoutes);
