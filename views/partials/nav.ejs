@@ -1,6 +1,8 @@
 <header class="border-b border-black/10 bg-white">
   <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
     <a href="/" class="text-lg font-semibold tracking-tight">Publisher</a>
+
+    <!-- Desktop nav -->
     <nav class="hidden items-center gap-5 text-sm font-medium text-black/65 md:flex">
       <a class="hover:text-ink" href="/">Dashboard</a>
       <a class="hover:text-ink" href="/posts/new">Create</a>
@@ -9,9 +11,42 @@
       <a class="hover:text-ink" href="/accounts">Accounts</a>
       <a class="hover:text-ink" href="/settings">Settings</a>
     </nav>
-    <form method="post" action="/auth/logout">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <button class="rounded-md border border-black/10 px-3 py-2 text-sm font-medium hover:bg-black/5">Log out</button>
-    </form>
+
+    <div class="flex items-center gap-2">
+      <!-- Desktop logout -->
+      <form method="post" action="/auth/logout" class="hidden md:block">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="rounded-md border border-black/10 px-3 py-2 text-sm font-medium hover:bg-black/5">Log out</button>
+      </form>
+
+      <!-- Mobile hamburger -->
+      <button type="button" data-toggle="mobile-menu"
+              class="rounded-md p-2 text-black/60 hover:bg-black/5 md:hidden"
+              aria-label="Open menu">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="hidden border-t border-black/10 md:hidden">
+    <nav class="flex flex-col px-4 py-3 text-sm font-medium text-black/65">
+      <a class="py-2 hover:text-ink" href="/">Dashboard</a>
+      <a class="py-2 hover:text-ink" href="/posts/new">Create</a>
+      <a class="py-2 hover:text-ink" href="/scheduled">Scheduled</a>
+      <a class="py-2 hover:text-ink" href="/history">History</a>
+      <a class="py-2 hover:text-ink" href="/accounts">Accounts</a>
+      <a class="py-2 hover:text-ink" href="/settings">Settings</a>
+      <div class="mt-2 border-t border-black/10 pt-2">
+        <form method="post" action="/auth/logout">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="w-full rounded-md border border-black/10 px-3 py-2 text-left text-sm font-medium hover:bg-black/5">
+            Log out
+          </button>
+        </form>
+      </div>
+    </nav>
   </div>
 </header>
