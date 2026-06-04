@@ -21,6 +21,7 @@ const postRoutes = require('./routes/postRoutes');
 const accountRoutes = require('./routes/accountRoutes');
 const debugRoutes = require('./routes/debugRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
+const legalRoutes = require('./routes/legalRoutes');
 const { notFound, errorHandler } = require('./middlewares/errorMiddleware');
 
 const app = express();
@@ -90,6 +91,7 @@ app.use((req, res, next) => {
 const csrfProtection = csrf();
 app.use((req, res, next) => {
   if (req.path.startsWith('/webhooks')) return next();
+  if (req.path === '/data-deletion/callback') return next();
   return csrfProtection(req, res, next);
 });
 
@@ -104,6 +106,7 @@ app.use('/posts', postRoutes);
 app.use('/accounts', accountRoutes);
 if (!env.isProduction) app.use('/debug', debugRoutes);
 app.use('/webhooks', webhookRoutes);
+app.use('/', legalRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
