@@ -1,4 +1,145 @@
-// Media carousel selection (posts/new)
+// ── Toast Notifications ────────────────────────────────────────────────────
+(function () {
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;max-width:360px;width:calc(100% - 2rem)';
+  document.body.appendChild(container);
+
+  const STYLES = {
+    success: { border: '#86efac', bg: '#f0fdf4', text: '#166534', iconBg: '#16a34a', icon: '✓' },
+    error:   { border: '#fca5a5', bg: '#fef2f2', text: '#991b1b', iconBg: '#dc2626', icon: '✕' },
+    warning: { border: '#fde68a', bg: '#fffbeb', text: '#92400e', iconBg: '#d97706', icon: '⚠' },
+    info:    { border: '#93c5fd', bg: '#eff6ff', text: '#1e40af', iconBg: '#2563eb', icon: 'ℹ' },
+  };
+
+  window.showToast = function (message, type, duration) {
+    type = type || 'info';
+    duration = duration || 4000;
+    const s = STYLES[type] || STYLES.info;
+
+    const el = document.createElement('div');
+    el.style.cssText = 'pointer-events:all;display:flex;align-items:flex-start;gap:0.75rem;border-radius:0.75rem;border:1px solid ' + s.border + ';background:' + s.bg + ';padding:0.75rem 1rem;box-shadow:0 4px 16px rgba(0,0,0,0.1);transform:translateX(calc(100% + 1.5rem));transition:transform 0.3s cubic-bezier(.22,.68,0,1.2),opacity 0.3s ease;opacity:0;position:relative;overflow:hidden';
+
+    const iconEl = document.createElement('span');
+    iconEl.style.cssText = 'flex-shrink:0;width:1.25rem;height:1.25rem;border-radius:50%;background:' + s.iconBg + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;margin-top:1px';
+    iconEl.textContent = s.icon;
+
+    const msgEl = document.createElement('span');
+    msgEl.style.cssText = 'flex:1;font-size:0.875rem;line-height:1.45;color:' + s.text;
+    msgEl.textContent = message;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = 'flex-shrink:0;background:none;border:none;cursor:pointer;color:' + s.text + ';opacity:0.45;font-size:1.1rem;line-height:1;padding:0;margin-top:-1px;transition:opacity 0.15s';
+    closeBtn.addEventListener('mouseenter', function () { this.style.opacity = '0.9'; });
+    closeBtn.addEventListener('mouseleave', function () { this.style.opacity = '0.45'; });
+    closeBtn.addEventListener('click', dismiss);
+
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:absolute;bottom:0;left:0;height:3px;background:' + s.iconBg + ';opacity:0.35;width:100%;transition:width linear ' + duration + 'ms';
+
+    el.appendChild(iconEl);
+    el.appendChild(msgEl);
+    el.appendChild(closeBtn);
+    el.appendChild(bar);
+    container.appendChild(el);
+
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.style.transform = 'translateX(0)';
+        el.style.opacity = '1';
+        bar.style.width = '0%';
+      });
+    });
+
+    var timer = setTimeout(dismiss, duration);
+
+    el.addEventListener('mouseenter', function () {
+      clearTimeout(timer);
+      bar.style.transition = 'none';
+      bar.style.width = bar.style.width;
+    });
+    el.addEventListener('mouseleave', function () {
+      var remaining = 1500;
+      bar.style.transition = 'width linear ' + remaining + 'ms';
+      bar.style.width = '0%';
+      timer = setTimeout(dismiss, remaining);
+    });
+
+    function dismiss() {
+      clearTimeout(timer);
+      el.style.transform = 'translateX(calc(100% + 1.5rem))';
+      el.style.opacity = '0';
+      setTimeout(function () { el.remove(); }, 320);
+    }
+  };
+})();
+
+// ── Confirm Modal ─────────────────────────────────────────────────────────
+window.showConfirm = function (message, okLabel) {
+  okLabel = okLabel || 'Confirm';
+  return new Promise(function (resolve) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;transition:opacity 0.2s ease';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:0.875rem;padding:1.5rem 1.75rem;max-width:400px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.25);transform:scale(0.92) translateY(8px);opacity:0;transition:transform 0.22s cubic-bezier(.22,.68,0,1.2),opacity 0.22s ease';
+
+    var titleEl = document.createElement('p');
+    titleEl.style.cssText = 'margin:0 0 0.4rem;font-size:1rem;font-weight:700;color:#16201c';
+    titleEl.textContent = 'Are you sure?';
+
+    var msgEl = document.createElement('p');
+    msgEl.style.cssText = 'margin:0 0 1.4rem;font-size:0.875rem;color:#555;line-height:1.5';
+    msgEl.textContent = message;
+
+    var btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:0.5rem;justify-content:flex-end';
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = 'padding:0.5rem 1.1rem;border-radius:0.5rem;border:1px solid #d1d5db;background:#fff;font-size:0.875rem;font-weight:500;cursor:pointer;color:#374151;transition:background 0.15s';
+    cancelBtn.addEventListener('mouseenter', function () { this.style.background = '#f3f4f6'; });
+    cancelBtn.addEventListener('mouseleave', function () { this.style.background = '#fff'; });
+    cancelBtn.addEventListener('click', function () { close(false); });
+
+    var confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.textContent = okLabel;
+    confirmBtn.style.cssText = 'padding:0.5rem 1.1rem;border-radius:0.5rem;border:none;background:#dc2626;color:#fff;font-size:0.875rem;font-weight:600;cursor:pointer;transition:background 0.15s';
+    confirmBtn.addEventListener('mouseenter', function () { this.style.background = '#b91c1c'; });
+    confirmBtn.addEventListener('mouseleave', function () { this.style.background = '#dc2626'; });
+    confirmBtn.addEventListener('click', function () { close(true); });
+
+    btns.appendChild(cancelBtn);
+    btns.appendChild(confirmBtn);
+    card.appendChild(titleEl);
+    card.appendChild(msgEl);
+    card.appendChild(btns);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        overlay.style.opacity = '1';
+        card.style.transform = 'scale(1) translateY(0)';
+        card.style.opacity = '1';
+      });
+    });
+
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(false); });
+
+    function close(result) {
+      card.style.transform = 'scale(0.92) translateY(8px)';
+      card.style.opacity = '0';
+      overlay.style.opacity = '0';
+      setTimeout(function () { overlay.remove(); resolve(result); }, 220);
+    }
+  });
+};
+
+// ── Media carousel selection (posts/new)
 const mediaGrid = document.getElementById('media-grid');
 if (mediaGrid) {
   let order = [];
@@ -44,13 +185,18 @@ if (mediaGrid) {
   document.getElementById('post-form')?.addEventListener('submit', (e) => {
     if (order.length === 0) {
       e.preventDefault();
-      alert('Please select at least one media item.');
+      showToast('Please select at least one media item.', 'error');
     }
   });
 }
 
-const toastBox = document.querySelector('[data-toasts]');
-if (toastBox) setTimeout(() => toastBox.remove(), 5000);
+// Flash messages from server — processed after showToast is defined
+const flashScript = document.getElementById('flash-data');
+if (flashScript) {
+  try {
+    JSON.parse(flashScript.textContent).forEach(function (f) { showToast(f.message, f.type); });
+  } catch (e) { /* ignore */ }
+}
 
 const caption = document.querySelector('[data-caption]');
 const count = document.querySelector('[data-caption-count]');
@@ -78,7 +224,11 @@ document.querySelectorAll('[data-hide]').forEach((btn) => {
 
 // Confirm dialogs: data-confirm="message" on forms
 document.querySelectorAll('form[data-confirm]').forEach((form) => {
-  form.addEventListener('submit', (e) => { if (!confirm(form.dataset.confirm)) e.preventDefault(); });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ok = await showConfirm(form.dataset.confirm, form.dataset.confirmOk || 'Delete');
+    if (ok) form.submit();
+  });
 });
 
 // Platform-specific fields: show when a matching platform account or brand account is selected
