@@ -256,8 +256,22 @@ async function youtubeCallback(req, res, next) {
     if (!req.query.state || req.query.state !== req.session.youtubeOAuthState) throw new Error('Invalid OAuth state.');
     const redirectUri = `${env.appUrl}/accounts/youtube/callback`;
     const token = await youtubeService.exchangeCode({ code: req.query.code, redirectUri });
-    const channel = await youtubeService.getChannel(token.access_token);
-    if (!channel) throw new Error('Could not retrieve YouTube channel. Make sure the account has a channel.');
+    let channel;
+    try {
+      channel = await youtubeService.getChannel(token.access_token);
+    } catch (err) {
+      const status = err.response?.status;
+      if (status === 403) {
+        req.flash('error', 'This Google account does not have access to the YouTube API. Make sure the account has a YouTube channel at youtube.com and that it is not a restricted Google Workspace account.');
+      } else {
+        req.flash('error', `Could not retrieve YouTube channel: ${err.message}`);
+      }
+      return res.redirect('/accounts');
+    }
+    if (!channel) {
+      req.flash('error', 'This Google account has no YouTube channel. Go to youtube.com and create a channel first, then reconnect.');
+      return res.redirect('/accounts');
+    }
     await accountModel.upsert({
       userId: req.user.id,
       platform: 'youtube',
