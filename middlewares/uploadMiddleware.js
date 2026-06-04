@@ -5,7 +5,7 @@ const { randomUUID } = require('crypto');
 const AppError = require('../utils/AppError');
 const { env } = require('../config/env');
 
-const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime']);
+const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime']);
 fs.mkdirSync(env.uploadRoot, { recursive: true });
 
 const storage = multer.diskStorage({

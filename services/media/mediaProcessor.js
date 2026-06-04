@@ -35,13 +35,38 @@ function screenshot(filePath, outputDir) {
   });
 }
 
+async function convertWebpToJpeg(filePath) {
+  const { unlink } = require('fs').promises;
+  const jpgPath = filePath.replace(/\.webp$/i, '.jpg');
+  await new Promise((resolve, reject) => {
+    ffmpeg(filePath)
+      .outputOptions('-q:v', '2')
+      .on('end', resolve)
+      .on('error', reject)
+      .save(jpgPath);
+  });
+  try { await unlink(filePath); } catch { /* ignore */ }
+  return jpgPath;
+}
+
 async function processMedia(file) {
   if (file.mimetype.startsWith('image/')) {
+    let filePath = file.path;
+    let mimeType = file.mimetype;
+
+    // Instagram (and most platforms) don't accept WebP — convert to JPEG silently
+    if (mimeType === 'image/webp') {
+      filePath = await convertWebpToJpeg(filePath);
+      mimeType = 'image/jpeg';
+    }
+
     return {
       duration: null,
       width: null,
       height: null,
-      thumbnailPath: file.path,
+      thumbnailPath: filePath,
+      convertedPath: filePath !== file.path ? filePath : null,
+      convertedMimeType: mimeType !== file.mimetype ? mimeType : null,
       validationErrors: []
     };
   }

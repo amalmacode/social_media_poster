@@ -238,8 +238,8 @@ class InstagramService extends BasePlatformService {
   async validateContent({ media, caption }) {
     const errors = [];
     if (caption && caption.length > 2200) errors.push('Instagram captions must be 2,200 characters or fewer.');
-    if (!['image/jpeg', 'image/png', 'video/mp4', 'video/quicktime'].includes(media.mime_type)) {
-      errors.push('Instagram supports JPEG/PNG images and MP4/MOV reels in this MVP.');
+    if (!['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/quicktime'].includes(media.mime_type)) {
+      errors.push('Instagram supports JPEG, PNG, GIF images and MP4/MOV videos.');
     }
     if (media.mime_type.startsWith('video/') && media.duration && media.duration > 90) {
       errors.push('Instagram Reels should be 90 seconds or fewer.');
