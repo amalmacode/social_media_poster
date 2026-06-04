@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS post_platforms (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   post_id uuid NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
   platform platform_type NOT NULL,
-  connected_account_id uuid NOT NULL REFERENCES connected_accounts(id),
+  connected_account_id uuid REFERENCES connected_accounts(id) ON DELETE SET NULL,
   remote_post_id text,
   status publish_status NOT NULL DEFAULT 'pending',
   error_message text,
