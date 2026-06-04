@@ -49,15 +49,6 @@ app.use(helmet({
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 500 }));
 
-// Uploaded media — served only to the authenticated owner
-app.use('/uploads', (req, res, next) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) return res.status(401).end();
-  // Path must start with the user's own directory
-  const urlPath = decodeURIComponent(req.path).replace(/\\/g, '/');
-  if (!urlPath.startsWith(`/${req.user.id}/`)) return res.status(403).end();
-  next();
-}, express.static(path.join(__dirname, env.uploadDir)));
-
 // Prevent Cloudflare (and any proxy) from caching dynamic HTML responses
 app.use((req, res, next) => {
   if (!req.path.startsWith('/public') && !req.path.startsWith('/uploads')) {
@@ -85,6 +76,14 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
+
+// Uploaded media — served only to the authenticated owner (must be after passport)
+app.use('/uploads', (req, res, next) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) return res.status(401).end();
+  const urlPath = decodeURIComponent(req.path).replace(/\\/g, '/');
+  if (!urlPath.startsWith(`/${req.user.id}/`)) return res.status(403).end();
+  next();
+}, express.static(path.join(__dirname, env.uploadDir)));
 
 app.use((req, res, next) => {
   res.locals.currentUser = req.user || null;
