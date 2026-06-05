@@ -88,8 +88,11 @@ async function uploadWatermark(req, res, next) {
 
     if (!req.file) throw new AppError('Please select a PNG or WebP image.', 400);
 
-    // Delete the old watermark file if one exists
-    if (brand.watermark_path) {
+    const relativePath = path.relative(process.cwd(), req.file.path).replace(/\\/g, '/');
+
+    // Delete old file only when it has a different path (different extension).
+    // If paths are the same, multer already overwrote it — deleting would erase the new file.
+    if (brand.watermark_path && brand.watermark_path !== relativePath) {
       try { await unlink(path.resolve(process.cwd(), brand.watermark_path)); } catch { /* ignore */ }
     }
 
@@ -97,7 +100,6 @@ async function uploadWatermark(req, res, next) {
     const position = ['center', 'top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(req.body.position)
       ? req.body.position : 'center';
     const size = Math.min(50, Math.max(5, parseInt(req.body.size, 10) || 20));
-    const relativePath = path.relative(process.cwd(), req.file.path).replace(/\\/g, '/');
 
     await brandAccountModel.updateWatermark(brand.id, req.user.id, { watermarkPath: relativePath, opacity, position, size });
     req.flash('success', 'Watermark saved.');
