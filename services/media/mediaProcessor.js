@@ -149,7 +149,8 @@ const OVERLAY_POSITIONS = {
 
 // Composites a watermark PNG/WebP over any image or video. Returns the temp output path.
 // Caller is responsible for deleting the temp file after use.
-async function applyWatermark(inputPath, watermarkPath, opacity, position, size) {
+// mediaWidth: pixel width of the base media (used to compute exact watermark target width).
+async function applyWatermark(inputPath, watermarkPath, opacity, position, size, mediaWidth) {
   const ext = path.extname(inputPath);
   const base = path.basename(inputPath, ext);
   const dir = path.dirname(inputPath);
@@ -158,19 +159,38 @@ async function applyWatermark(inputPath, watermarkPath, opacity, position, size)
   const op = Math.min(1, Math.max(0.01, parseFloat(opacity) || 0.5)).toFixed(3);
   const overlayPos = OVERLAY_POSITIONS[position] || OVERLAY_POSITIONS.center;
   const sizePct = Math.min(50, Math.max(5, parseInt(size, 10) || 20));
-  // scale2ref scales the watermark (input 1) relative to the media (input 0) width,
-  // then colorchannelmixer adjusts opacity, then overlay composites it
-  const filter = `[1:v][0:v]scale2ref=w=iw*${sizePct}/100:h=-2[wm_s][main];[wm_s]format=argb,colorchannelmixer=aa=${op}[wm];[main][wm]overlay=${overlayPos}[outv]`;
+
+  // Resolve media width — prefer caller-supplied value, fall back to probing
+  let mWidth = parseInt(mediaWidth, 10) || 0;
+  if (!mWidth) {
+    try {
+      const meta = await probe(inputPath);
+      const stream = meta.streams.find((s) => s.codec_type === 'video');
+      if (stream) mWidth = stream.width || 0;
+    } catch { /* ignore — will use scale2ref fallback */ }
+  }
+
+  let filter;
+  if (mWidth > 0) {
+    // Explicit pixel width: plain `scale` filter reliably preserves the watermark's
+    // own aspect ratio. scale2ref's h=-2 is ambiguous across ffmpeg versions and
+    // can stretch the watermark.  -2 = maintain AR, round to even.
+    const targetW = Math.max(10, Math.round(mWidth * sizePct / 100));
+    filter = `[1:v]scale=${targetW}:-2,format=argb,colorchannelmixer=aa=${op}[wm];[0:v][wm]overlay=${overlayPos}[outv]`;
+  } else {
+    // Last-resort fallback when dimensions are completely unknown
+    filter = `[1:v][0:v]scale2ref=w=iw*${sizePct}/100:h=-2[wm_s][main];[wm_s]format=argb,colorchannelmixer=aa=${op}[wm];[main][wm]overlay=${overlayPos}[outv]`;
+  }
+
   const isImage = /\.(jpe?g|png|gif|webp)$/i.test(inputPath);
 
   await new Promise((resolve, reject) => {
     const cmd = ffmpeg(inputPath)
       .input(watermarkPath)
-      .complexFilter(filter, ['outv']); // -map [outv] added automatically by fluent-ffmpeg
+      .complexFilter(filter, ['outv']);
     if (isImage) {
       cmd.outputOptions(['-frames:v', '1', '-q:v', '2']);
     } else {
-      // -map 0:a? copies audio from the video input; ? makes it optional (no error if no audio track)
       cmd.outputOptions(['-map', '0:a?', '-codec:a', 'copy']);
     }
     cmd.on('end', resolve).on('error', reject).save(tmpPath);
