@@ -190,6 +190,11 @@ if (mediaGrid) {
   });
 }
 
+// Auto-reload when any media item is still being processed (crop in progress)
+if (document.querySelector('[data-media-processing]')) {
+  setTimeout(() => location.reload(), 4000);
+}
+
 // Flash messages from server — processed after showToast is defined
 const flashScript = document.getElementById('flash-data');
 if (flashScript) {

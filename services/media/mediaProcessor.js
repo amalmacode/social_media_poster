@@ -98,10 +98,10 @@ async function processMedia(file) {
 
 // Crops a video in-place. x, y, w, h are natural pixel coordinates.
 async function cropVideo(inputPath, x, y, w, h) {
+  const { rename } = require('fs').promises;
   const ext = path.extname(inputPath);
   const base = path.basename(inputPath, ext);
   const dir = path.dirname(inputPath);
-  // Unique tmp name so concurrent/retry calls never collide on Windows.
   const tmpPath = path.join(dir, `${base}-crop-${Date.now()}${ext}`);
 
   await new Promise((resolve, reject) => {
@@ -113,25 +113,9 @@ async function cropVideo(inputPath, x, y, w, h) {
       .save(tmpPath);
   });
 
-  // On Windows, FFmpeg may not have fully released its file handle when `end`
-  // fires — retry copyFile with back-off for EBUSY.
-  const { copyFile, unlink } = require('fs').promises;
-  let lastErr;
-  for (let i = 0; i < 6; i++) {
-    await new Promise((r) => setTimeout(r, 150 * (i + 1)));
-    try {
-      await copyFile(tmpPath, inputPath);
-      lastErr = null;
-      break;
-    } catch (err) {
-      lastErr = err;
-      if (err.code !== 'EBUSY') break;
-    }
-  }
-  if (lastErr) throw lastErr;
-
-  // Temp cleanup is best-effort — a locked file here is not fatal.
-  try { await unlink(tmpPath); } catch { /* ignore */ }
+  // Atomic replace — rename is a single syscall on the same filesystem,
+  // so the original is never left in a partial/corrupt state.
+  await rename(tmpPath, inputPath);
 }
 
 // Crops an image in-place using ffmpeg. x, y, w, h are natural pixel coordinates.

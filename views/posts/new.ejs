@@ -30,6 +30,18 @@
               <p class="text-xs text-black/40"><%= item.width %>&times;<%= item.height %></p>
             <% } %>
           </label>
+          <% if (item.processing_status === 'processing') { %>
+            <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center rounded-md bg-black/60" data-media-processing>
+              <div class="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <p class="mt-1 text-xs font-medium text-white">Cropping…</p>
+            </div>
+          <% } %>
+          <% if (item.processing_status === 'failed') { %>
+            <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center rounded-md bg-red-900/70">
+              <p class="text-xs font-medium text-white">Crop failed</p>
+              <p class="text-xs text-white/70">Delete and re-upload</p>
+            </div>
+          <% } %>
           <span class="pointer-events-none absolute left-2 top-2 hidden h-5 w-5 items-center justify-center rounded-full bg-mint text-xs font-bold text-white" data-order-badge></span>
           <% if (isVideo) { %>
             <button type="button"

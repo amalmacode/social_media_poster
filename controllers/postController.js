@@ -7,6 +7,7 @@ const brandAccountModel = require('../models/brandAccountModel');
 const postModel = require('../models/postModel');
 const mediaService = require('../services/media/mediaService');
 const { cropVideo, cropImage, probe, screenshot } = require('../services/media/mediaProcessor');
+const { updateStatus: updateMediaStatus } = require('../models/mediaModel');
 const { relativeUploadPath } = require('../services/storage/localStorageService');
 const AppError = require('../utils/AppError');
 
@@ -228,7 +229,6 @@ async function cropMedia(req, res, next) {
       throw new AppError('Invalid crop coordinates.', 400);
     }
 
-    // Convert percentages → natural pixel coordinates (FFmpeg needs even numbers)
     const toEven = (n) => Math.floor(n / 2) * 2;
     const pixX = Math.round(pctX / 100 * media.width);
     const pixY = Math.round(pctY / 100 * media.height);
@@ -236,28 +236,31 @@ async function cropMedia(req, res, next) {
     const pixH = toEven(Math.round(pctH / 100 * media.height));
     if (pixW < 2 || pixH < 2) throw new AppError('Crop area too small.', 400);
 
-    const inputPath = path.resolve(process.cwd(), media.file_path);
-
-    // Run FFmpeg crop (replaces original in-place)
-    await cropVideo(inputPath, pixX, pixY, pixW, pixH);
-
-    // Regenerate thumbnail
-    const thumbDir = path.dirname(inputPath);
-    if (media.thumbnail_path) {
-      try { await unlink(path.resolve(process.cwd(), media.thumbnail_path)); } catch { /* ignore */ }
-    }
-    const newThumbAbsolute = await screenshot(inputPath, thumbDir);
-    const fileStat = await stat(inputPath);
-
-    await mediaModel.update(media.id, req.user.id, {
-      width: pixW,
-      height: pixH,
-      thumbnailPath: relativeUploadPath(newThumbAbsolute),
-      sizeBytes: fileStat.size
-    });
-
-    req.flash('success', 'Video cropped.');
+    // Respond immediately — FFmpeg runs in background to avoid Cloudflare 504
+    await updateMediaStatus(media.id, req.user.id, 'processing');
+    req.flash('success', 'Cropping video — it will be ready in a few seconds, refresh to confirm.');
     res.redirect('/posts/new');
+
+    const inputPath = path.resolve(process.cwd(), media.file_path);
+    const thumbDir = path.dirname(inputPath);
+    setImmediate(async () => {
+      try {
+        await cropVideo(inputPath, pixX, pixY, pixW, pixH);
+        if (media.thumbnail_path) {
+          try { await unlink(path.resolve(process.cwd(), media.thumbnail_path)); } catch { /* ignore */ }
+        }
+        const newThumbAbsolute = await screenshot(inputPath, thumbDir);
+        const fileStat = await stat(inputPath);
+        await mediaModel.update(media.id, req.user.id, {
+          width: pixW, height: pixH,
+          thumbnailPath: relativeUploadPath(newThumbAbsolute),
+          sizeBytes: fileStat.size
+        });
+      } catch (err) {
+        console.error(`[CropVideo] Failed for media ${media.id}:`, err.message);
+        await updateMediaStatus(media.id, req.user.id, 'failed').catch(() => {});
+      }
+    });
   } catch (error) {
     next(error);
   }
@@ -296,19 +299,26 @@ async function cropImageMedia(req, res, next) {
     const pixH = toEven(Math.round(pctH / 100 * height));
     if (pixW < 2 || pixH < 2) throw new AppError('Crop area too small.', 400);
 
-    const inputPath = path.resolve(process.cwd(), media.file_path);
-    await cropImage(inputPath, pixX, pixY, pixW, pixH);
-
-    const fileStat = await stat(inputPath);
-    await mediaModel.update(media.id, req.user.id, {
-      width: pixW,
-      height: pixH,
-      thumbnailPath: media.thumbnail_path,
-      sizeBytes: fileStat.size
-    });
-
-    req.flash('success', 'Image cropped.');
+    // Respond immediately — run FFmpeg in background
+    await updateMediaStatus(media.id, req.user.id, 'processing');
+    req.flash('success', 'Cropping image — refresh in a moment to see the result.');
     res.redirect('/posts/new');
+
+    const inputPath = path.resolve(process.cwd(), media.file_path);
+    setImmediate(async () => {
+      try {
+        await cropImage(inputPath, pixX, pixY, pixW, pixH);
+        const fileStat = await stat(inputPath);
+        await mediaModel.update(media.id, req.user.id, {
+          width: pixW, height: pixH,
+          thumbnailPath: media.thumbnail_path,
+          sizeBytes: fileStat.size
+        });
+      } catch (err) {
+        console.error(`[CropImage] Failed for media ${media.id}:`, err.message);
+        await updateMediaStatus(media.id, req.user.id, 'failed').catch(() => {});
+      }
+    });
   } catch (error) {
     next(error);
   }

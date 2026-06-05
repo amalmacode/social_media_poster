@@ -45,7 +45,7 @@ async function hasLinkedPosts(mediaId) {
 async function update(id, userId, fields) {
   const { rows } = await query(
     `UPDATE media
-     SET width=$3, height=$4, thumbnail_path=$5, size_bytes=$6
+     SET width=$3, height=$4, thumbnail_path=$5, size_bytes=$6, processing_status='success'
      WHERE id=$1 AND user_id=$2
      RETURNING *`,
     [id, userId, fields.width, fields.height, fields.thumbnailPath, fields.sizeBytes]
@@ -53,8 +53,15 @@ async function update(id, userId, fields) {
   return rows[0] || null;
 }
 
+async function updateStatus(id, userId, status) {
+  await query(
+    `UPDATE media SET processing_status = $3::publish_status WHERE id = $1 AND user_id = $2`,
+    [id, userId, status]
+  );
+}
+
 async function remove(id, userId) {
   await query('DELETE FROM media WHERE id = $1 AND user_id = $2', [id, userId]);
 }
 
-module.exports = { create, listByUser, findForUser, hasLinkedPosts, update, remove };
+module.exports = { create, listByUser, findForUser, hasLinkedPosts, update, updateStatus, remove };
