@@ -124,19 +124,25 @@
         <div>
           <div class="flex items-center justify-between mb-2">
             <p class="text-xs font-medium text-black/60">Live preview</p>
-            <p class="text-xs text-black/30">Updates as you adjust sliders</p>
-          </div>
-          <div id="wm-preview"
-               class="relative overflow-hidden rounded-lg border border-black/10"
-               style="aspect-ratio:16/9;background:repeating-conic-gradient(#d1d5db 0% 25%,#f3f4f6 0% 50%) 0 0/24px 24px">
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span class="rounded bg-black/10 px-2 py-1 text-xs text-black/30 select-none">Your photo / video</span>
+            <div class="flex gap-1">
+              <% [['16/9','16:9','wm-fmt-btn rounded px-2 py-0.5 text-xs font-medium bg-ink text-white'],['1/1','1:1','wm-fmt-btn rounded px-2 py-0.5 text-xs font-medium bg-black/8 text-black/50 hover:bg-black/12'],['9/16','9:16','wm-fmt-btn rounded px-2 py-0.5 text-xs font-medium bg-black/8 text-black/50 hover:bg-black/12']].forEach(function(f){ %>
+                <button type="button" class="<%= f[2] %>" data-ratio="<%= f[0] %>"><%= f[1] %></button>
+              <% }) %>
             </div>
-            <img id="wm-preview-img"
-                 src="/<%= brand.watermark_path %>"
-                 alt=""
-                 class="absolute max-w-none pointer-events-none select-none"
-                 style="width:<%= brand.watermark_size || 20 %>%;opacity:<%= brand.watermark_opacity || 0.5 %>">
+          </div>
+          <div class="flex justify-center">
+            <div id="wm-preview"
+                 class="relative overflow-hidden rounded-lg border border-black/10 w-full"
+                 style="aspect-ratio:16/9;max-height:260px;background:repeating-conic-gradient(#d1d5db 0% 25%,#f3f4f6 0% 50%) 0 0/24px 24px">
+              <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span class="rounded bg-black/10 px-2 py-1 text-xs text-black/30 select-none">Your photo / video</span>
+              </div>
+              <img id="wm-preview-img"
+                   src="/<%= brand.watermark_path %>"
+                   alt=""
+                   class="absolute max-w-none pointer-events-none select-none"
+                   style="width:<%= brand.watermark_size || 20 %>%;opacity:<%= brand.watermark_opacity || 0.5 %>">
+            </div>
           </div>
           <p class="mt-1 text-xs text-black/30">Approximate — exact rendering done by ffmpeg at publish time</p>
         </div>

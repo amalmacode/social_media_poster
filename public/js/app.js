@@ -229,7 +229,20 @@ if (mediaGrid) {
   sizeInput.addEventListener('input', update);
   opacityInput.addEventListener('input', update);
   posSelect.addEventListener('change', update);
-  update(); // set initial position on page load
+  update();
+
+  // Format toggle (16:9 / 1:1 / 9:16)
+  var preview = document.getElementById('wm-preview');
+  document.querySelectorAll('.wm-fmt-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.wm-fmt-btn').forEach(function (b) {
+        b.className = b.className.replace('bg-ink text-white', 'bg-black/8 text-black/50 hover:bg-black/12');
+      });
+      btn.className = btn.className.replace('bg-black/8 text-black/50 hover:bg-black/12', 'bg-ink text-white');
+      if (preview) preview.style.aspectRatio = btn.dataset.ratio;
+      update(); // reapply position after resize
+    });
+  });
 })();
 
 // Auto-reload when any media item is still being processed (crop in progress)
