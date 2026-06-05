@@ -83,7 +83,8 @@ async function createPost(req, res, next) {
       brandIds.length ? brandAccountModel.resolveToAccountIds(brandIds) : Promise.resolve([]),
       brandIds.length ? Promise.all(brandIds.map((id) => brandAccountModel.findWithMembers(id, req.user.id))) : Promise.resolve([])
     ]);
-    const brandWithWatermark = brandDetails.find((b) => b?.watermark_path);
+    const applyWatermark = req.body.applyWatermark === '1';
+    const brandWithWatermark = applyWatermark ? brandDetails.find((b) => b?.watermark_path) : null;
     const watermarkCfg = brandWithWatermark ? {
       path: brandWithWatermark.watermark_path,
       opacity: parseFloat(brandWithWatermark.watermark_opacity) || 0.5,

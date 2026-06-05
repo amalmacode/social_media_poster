@@ -102,7 +102,9 @@
               <div class="flex items-center justify-between">
                 <span class="text-sm font-semibold"><%= brand.name %></span>
                 <input type="checkbox" name="brandAccountIds" value="<%= brand.id %>"
-                       data-brand data-platforms="<%= brand.members.map(function(m){return m.platform;}).join(',') %>">
+                       data-brand
+                       data-platforms="<%= brand.members.map(function(m){return m.platform;}).join(',') %>"
+                       data-has-watermark="<%= brand.watermark_path ? '1' : '' %>">
               </div>
               <div class="mt-2 flex flex-wrap gap-1">
                 <% (brand.members || []).forEach(function(m) { %>
@@ -141,6 +143,21 @@
         <p class="mt-2 text-xs text-black/40"><a href="/accounts" class="underline">Create a brand account</a> to group platforms together.</p>
       <% } %>
     </div>
+    <!-- Watermark toggle — shown only when a brand with a watermark is selected -->
+    <div id="watermark-toggle-row" class="hidden mt-4 flex items-center justify-between rounded-md border border-black/10 bg-black/[0.02] px-4 py-3">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">🔲</span>
+        <div>
+          <p class="text-sm font-medium">Apply brand watermark</p>
+          <p class="text-xs text-black/45">Overlay your brand logo on all media in this post</p>
+        </div>
+      </div>
+      <label class="relative inline-flex cursor-pointer items-center">
+        <input type="checkbox" name="applyWatermark" value="1" id="apply-watermark-cb" class="sr-only peer" checked>
+        <div class="h-6 w-11 rounded-full bg-black/20 peer-checked:bg-mint transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></div>
+      </label>
+    </div>
+
     <div class="mt-5 grid gap-4 sm:grid-cols-2" data-platform-fields>
       <div data-field="youtube" class="hidden rounded-md border border-black/10 p-3">
         <label class="block text-sm font-medium">YouTube title</label>

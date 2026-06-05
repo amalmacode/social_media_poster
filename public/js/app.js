@@ -239,6 +239,14 @@ function updatePlatformFields() {
     (i.dataset.platforms || '').split(',').filter(Boolean).forEach((p) => active.add(p));
   });
   document.querySelectorAll('[data-field]').forEach((field) => field.classList.toggle('hidden', !active.has(field.dataset.field)));
+
+  // Show watermark toggle if any selected brand has a watermark
+  const wmRow = document.getElementById('watermark-toggle-row');
+  if (wmRow) {
+    const anyWatermark = Array.from(document.querySelectorAll('input[name="brandAccountIds"]:checked'))
+      .some((i) => i.dataset.hasWatermark === '1');
+    wmRow.classList.toggle('hidden', !anyWatermark);
+  }
 }
 document.querySelectorAll('input[name="accounts"], input[name="brandAccountIds"]').forEach((input) => {
   input.addEventListener('change', updatePlatformFields);
