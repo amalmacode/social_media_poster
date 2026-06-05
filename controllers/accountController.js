@@ -339,6 +339,41 @@ async function pinterestCallback(req, res, next) {
   }
 }
 
+function connectPinterestToken(req, res) {
+  res.render('accounts/pinterest-token', { title: 'Connect Pinterest with token' });
+}
+
+async function pinterestTokenConnect(req, res, next) {
+  try {
+    const accessToken = (req.body.accessToken || '').trim();
+    if (!accessToken) {
+      req.flash('error', 'Paste your Pinterest access token.');
+      return res.redirect('/accounts/pinterest/connect-token');
+    }
+    const [profile, boards] = await Promise.all([
+      pinterestService.getProfile(accessToken),
+      pinterestService.getBoards(accessToken)
+    ]);
+    if (!profile?.username) throw new Error('Pinterest API returned no profile — token may be invalid or expired.');
+    await accountModel.upsert({
+      userId: req.user.id,
+      platform: 'pinterest',
+      platformUserId: profile.username,
+      username: profile.username,
+      accessToken,
+      refreshToken: null,
+      expiresAt: null,
+      metadata: { boards: (boards || []).map((b) => ({ id: b.id, name: b.name })), profile, sandbox: true }
+    });
+    req.flash('success', `Pinterest connected: @${profile.username} — ${(boards || []).length} board(s) loaded.`);
+    res.redirect('/accounts');
+  } catch (error) {
+    const msg = error.response?.data?.message || error.message;
+    req.flash('error', `Pinterest token error: ${msg}`);
+    res.redirect('/accounts/pinterest/connect-token');
+  }
+}
+
 function connectTikTok(req, res) {
   if (!env.tiktok.clientKey || !env.tiktok.clientSecret) {
     req.flash('error', 'Set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET in .env first.');
@@ -407,10 +442,14 @@ module.exports = {
   index,
   connectInstagram,
   instagramCallback,
+  connectInstagramDirect,
+  instagramLoginCallback,
   connectYouTube,
   youtubeCallback,
   connectPinterest,
   pinterestCallback,
+  connectPinterestToken,
+  pinterestTokenConnect,
   connectTikTok,
   tiktokCallback,
   debugInstagramPages,

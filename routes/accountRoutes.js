@@ -13,6 +13,8 @@ router.get('/youtube/connect', ensureAuthenticated, accountController.connectYou
 router.get('/youtube/callback', ensureAuthenticated, accountController.youtubeCallback);
 router.get('/pinterest/connect', ensureAuthenticated, accountController.connectPinterest);
 router.get('/pinterest/callback', ensureAuthenticated, accountController.pinterestCallback);
+router.get('/pinterest/connect-token', ensureAuthenticated, accountController.connectPinterestToken);
+router.post('/pinterest/connect-token', ensureAuthenticated, accountController.pinterestTokenConnect);
 router.get('/tiktok/connect', ensureAuthenticated, accountController.connectTikTok);
 router.get('/tiktok/callback', ensureAuthenticated, accountController.tiktokCallback);
 
