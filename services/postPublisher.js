@@ -19,7 +19,8 @@ async function publishPost(postId) {
 
   if (watermarkCfg?.path) {
     const wmAbs = path.resolve(process.cwd(), watermarkCfg.path);
-    const seen = new Map(); // de-duplicate by media id
+    console.log(`[Watermark] Applying watermark to post ${postId} | file: ${watermarkCfg.path} | opacity: ${watermarkCfg.opacity} | position: ${watermarkCfg.position}`);
+    const seen = new Map();
 
     async function withWatermark(m) {
       if (!m) return null;
@@ -28,11 +29,12 @@ async function publishPost(postId) {
       try {
         const tmpAbs = await applyWatermark(inputAbs, wmAbs, watermarkCfg.opacity, watermarkCfg.position);
         tempFiles.push(tmpAbs);
+        console.log(`[Watermark] Created watermarked copy: ${path.basename(tmpAbs)}`);
         const result = { ...m, file_path: path.relative(process.cwd(), tmpAbs).replace(/\\/g, '/') };
         seen.set(m.id, result);
         return result;
       } catch (err) {
-        console.warn(`[Watermark] Skipping watermark for ${m.file_path}: ${err.message}`);
+        console.error(`[Watermark] FAILED for ${m.file_path}: ${err.message} — publishing original`);
         seen.set(m.id, m);
         return m;
       }
@@ -40,6 +42,9 @@ async function publishPost(postId) {
 
     publishItems = await Promise.all((post.mediaItems || []).map(withWatermark));
     publishMedia = post.media ? (seen.get(post.media.id) || await withWatermark(post.media)) : null;
+    console.log(`[Watermark] Done — ${tempFiles.length} temp file(s) created`);
+  } else {
+    console.log(`[Watermark] No watermark config on post ${postId} — publishing originals`);
   }
 
   let success = 0;
