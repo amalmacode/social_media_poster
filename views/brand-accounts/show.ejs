@@ -89,12 +89,16 @@
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
           <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-black/60">Size</label>
-            <span class="rounded-full bg-mint/10 px-2 py-0.5 text-xs font-semibold text-mint" id="wm-size-label"><%= brand.watermark_size || 20 %>% of width</span>
+            <label class="text-xs font-medium text-black/60">Size <span class="font-normal text-black/35">(% of media width)</span></label>
+            <span id="wm-size-label" class="rounded-full px-2 py-0.5 text-xs font-semibold <%= (brand.watermark_size || 20) > 30 ? 'bg-amber-100 text-amber-700' : 'bg-mint/10 text-mint' %>"><%= brand.watermark_size || 20 %>% of width</span>
           </div>
           <input id="wm-size" type="range" name="size" min="5" max="50" step="5"
                  value="<%= brand.watermark_size || 20 %>"
                  class="mt-1 w-full accent-mint">
+          <div class="mt-0.5 flex justify-between text-xs text-black/25">
+            <span>5%</span><span class="text-mint font-medium">← recommended (10–25%)</span><span>50%</span>
+          </div>
+          <p id="wm-size-warning" class="mt-1 text-xs text-amber-600 <%= (brand.watermark_size || 20) > 30 ? '' : 'hidden' %>">⚠ Above 30% covers a large portion of the media</p>
 
           <div class="mt-4 flex items-center justify-between">
             <label class="text-xs font-medium text-black/60">Opacity</label>

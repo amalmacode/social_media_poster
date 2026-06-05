@@ -222,7 +222,14 @@ if (mediaGrid) {
     previewImg.style.bottom    = pos.bottom || '';
     previewImg.style.transform = pos.transform || '';
 
-    if (sizeLabel)    sizeLabel.textContent    = size + '% of width';
+    if (sizeLabel) {
+      sizeLabel.textContent = size + '% of width';
+      var large = parseInt(size, 10) > 30;
+      sizeLabel.className = sizeLabel.className
+        .replace(/bg-\S+\s+text-\S+/, large ? 'bg-amber-100 text-amber-700' : 'bg-mint/10 text-mint');
+      var warn = document.getElementById('wm-size-warning');
+      if (warn) warn.classList.toggle('hidden', !large);
+    }
     if (opacityLabel) opacityLabel.textContent = Math.round(opacity * 100) + '%';
   }
 
