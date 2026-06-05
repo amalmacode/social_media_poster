@@ -173,17 +173,19 @@ async function applyWatermark(inputPath, watermarkPath, opacity, position) {
 
   const op = Math.min(1, Math.max(0.01, parseFloat(opacity) || 0.5)).toFixed(3);
   const overlayPos = OVERLAY_POSITIONS[position] || OVERLAY_POSITIONS.center;
-  const filter = `[1:v]format=argb,colorchannelmixer=aa=${op}[wm];[0:v][wm]overlay=${overlayPos}`;
+  // [outv] label + explicit -map ensures ffmpeg writes the filtered stream to output
+  const filter = `[1:v]format=argb,colorchannelmixer=aa=${op}[wm];[0:v][wm]overlay=${overlayPos}[outv]`;
   const isImage = /\.(jpe?g|png|gif|webp)$/i.test(inputPath);
 
   await new Promise((resolve, reject) => {
     const cmd = ffmpeg(inputPath)
       .input(watermarkPath)
-      .complexFilter(filter);
+      .complexFilter(filter, ['outv']); // -map [outv] added automatically by fluent-ffmpeg
     if (isImage) {
       cmd.outputOptions(['-frames:v', '1', '-q:v', '2']);
     } else {
-      cmd.outputOptions(['-codec:a', 'copy']);
+      // -map 0:a? copies audio from the video input; ? makes it optional (no error if no audio track)
+      cmd.outputOptions(['-map', '0:a?', '-codec:a', 'copy']);
     }
     cmd.on('end', resolve).on('error', reject).save(tmpPath);
   });
