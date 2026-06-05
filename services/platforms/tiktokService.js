@@ -138,12 +138,22 @@ class TikTokService extends BasePlatformService {
       return url;
     });
 
-    const res = await this.client.post(`${API}/post/publish/content/init/`, {
-      post_info: { title, privacy_level: privacyLevel, disable_comment: false, auto_add_music: true, photo_cover_index: 0 },
-      source_info: { source: 'PULL_FROM_URL', photo_images: photoImages, photo_cover_index: 0, media_type: 'PHOTO' }
-    }, {
-      headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json; charset=UTF-8' }
-    });
+    let res;
+    try {
+      res = await this.client.post(`${API}/post/publish/content/init/`, {
+        post_info: { title, privacy_level: privacyLevel, disable_comment: false, auto_add_music: true, photo_cover_index: 0 },
+        source_info: { source: 'PULL_FROM_URL', photo_images: photoImages, photo_cover_index: 0, media_type: 'PHOTO' }
+      }, {
+        headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json; charset=UTF-8' }
+      });
+    } catch (err) {
+      const code = err.response?.data?.error?.code;
+      if (code === 'unaudited_client_can_only_post_to_private_accounts' && privacyLevel !== 'SELF_ONLY') {
+        console.warn('[TikTok] App not yet approved — retrying photo init as SELF_ONLY (sandbox fallback).');
+        return this.publishPhoto(account, images, title, 'SELF_ONLY');
+      }
+      throw err;
+    }
 
     return this.pollStatus(account, res.data.data.publish_id);
   }
