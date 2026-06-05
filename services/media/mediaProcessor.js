@@ -54,16 +54,23 @@ async function processMedia(file) {
     let filePath = file.path;
     let mimeType = file.mimetype;
 
-    // Instagram (and most platforms) don't accept WebP — convert to JPEG silently
     if (mimeType === 'image/webp') {
       filePath = await convertWebpToJpeg(filePath);
       mimeType = 'image/jpeg';
     }
 
+    // Probe dimensions — ffprobe treats images as single-frame video streams
+    let width = null, height = null;
+    try {
+      const meta = await probe(filePath);
+      const stream = meta.streams.find((s) => s.codec_type === 'video');
+      if (stream) { width = stream.width || null; height = stream.height || null; }
+    } catch { /* non-critical — dimensions can be fetched at crop time */ }
+
     return {
       duration: null,
-      width: null,
-      height: null,
+      width,
+      height,
       thumbnailPath: filePath,
       convertedPath: filePath !== file.path ? filePath : null,
       convertedMimeType: mimeType !== file.mimetype ? mimeType : null,
@@ -127,4 +134,25 @@ async function cropVideo(inputPath, x, y, w, h) {
   try { await unlink(tmpPath); } catch { /* ignore */ }
 }
 
-module.exports = { processMedia, cropVideo, screenshot };
+// Crops an image in-place using ffmpeg. x, y, w, h are natural pixel coordinates.
+async function cropImage(inputPath, x, y, w, h) {
+  const { copyFile, unlink } = require('fs').promises;
+  const ext = path.extname(inputPath);
+  const base = path.basename(inputPath, ext);
+  const dir = path.dirname(inputPath);
+  const tmpPath = path.join(dir, `${base}-imgcrop-${Date.now()}${ext}`);
+
+  await new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .videoFilter(`crop=${w}:${h}:${x}:${y}`)
+      .outputOptions(['-frames:v', '1', '-q:v', '2'])
+      .on('end', resolve)
+      .on('error', reject)
+      .save(tmpPath);
+  });
+
+  await copyFile(tmpPath, inputPath);
+  try { await unlink(tmpPath); } catch { /* ignore */ }
+}
+
+module.exports = { processMedia, cropVideo, cropImage, probe, screenshot };

@@ -83,6 +83,7 @@ app.use('/uploads', (req, res, next) => {
   if (!req.isAuthenticated || !req.isAuthenticated()) return res.status(401).end();
   const urlPath = decodeURIComponent(req.path).replace(/\\/g, '/');
   if (!urlPath.startsWith(`/${req.user.id}/`)) return res.status(403).end();
+  res.set('Cache-Control', 'private, no-cache');
   next();
 }, express.static(path.join(__dirname, env.uploadDir)));
 

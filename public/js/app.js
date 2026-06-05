@@ -399,6 +399,139 @@ document.querySelectorAll('input[name="publishMode"]').forEach((input) => {
   document.addEventListener('mouseup', () => { dragging = false; resizing = false; });
 })();
 
+// ── Image Crop modal ──────────────────────────────────────────────────────────
+(function () {
+  const modal  = document.getElementById('img-crop-modal');
+  if (!modal) return;
+  const wrap   = document.getElementById('img-crop-wrap');
+  const img    = document.getElementById('img-crop-img');
+  const box    = document.getElementById('img-crop-box');
+  const form   = document.getElementById('img-crop-form');
+  const infoEl = document.getElementById('img-crop-info');
+  const xIn    = document.getElementById('img-crop-x');
+  const yIn    = document.getElementById('img-crop-y');
+  const wIn    = document.getElementById('img-crop-w');
+  const hIn    = document.getElementById('img-crop-h');
+
+  let ratio = null;
+  let dragging = false, resizing = false, activeHandle = null;
+  let startMX, startMY, startL, startT, startW, startH;
+  let naturalW = 0, naturalH = 0;
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function applyBox(l, t, w, h) {
+    const cw = wrap.offsetWidth, ch = wrap.offsetHeight;
+    w = clamp(w, 20, cw); h = clamp(h, 20, ch);
+    l = clamp(l, 0, cw - w); t = clamp(t, 0, ch - h);
+    box.style.left = l + 'px'; box.style.top  = t + 'px';
+    box.style.width = w + 'px'; box.style.height = h + 'px';
+    xIn.value = (l / cw * 100).toFixed(4);
+    yIn.value = (t / ch * 100).toFixed(4);
+    wIn.value = (w / cw * 100).toFixed(4);
+    hIn.value = (h / ch * 100).toFixed(4);
+    if (naturalW && naturalH) {
+      infoEl.textContent = Math.round(w / cw * naturalW) + ' × ' + Math.round(h / ch * naturalH) + ' px';
+    } else {
+      infoEl.textContent = Math.round(w / cw * 100) + '% × ' + Math.round(h / ch * 100) + '%';
+    }
+  }
+
+  function initBox() {
+    const cw = wrap.offsetWidth, ch = wrap.offsetHeight;
+    if (!cw || !ch) return;
+    var w, h;
+    if (ratio) {
+      w = cw * 0.9; h = w / ratio;
+      if (h > ch * 0.9) { h = ch * 0.9; w = h * ratio; }
+    } else { w = cw * 0.9; h = ch * 0.9; }
+    applyBox((cw - w) / 2, (ch - h) / 2, w, h);
+  }
+
+  function openModal(btn) {
+    form.action = '/posts/media/' + btn.dataset.cropImage + '/crop-image';
+    naturalW = parseInt(btn.dataset.imgW, 10) || 0;
+    naturalH = parseInt(btn.dataset.imgH, 10) || 0;
+    ratio = null;
+    document.querySelectorAll('.img-crop-ratio-btn').forEach(function (b) { b.classList.remove('ring-2', 'ring-mint'); });
+    img.src = btn.dataset.cropSrc;
+    box.style.display = 'none';
+    modal.style.display = 'flex';
+
+    function onLoad() {
+      wrap.style.width  = img.offsetWidth  + 'px';
+      wrap.style.height = img.offsetHeight + 'px';
+      box.style.display = 'block';
+      initBox();
+    }
+    if (img.complete && img.naturalWidth) { onLoad(); }
+    else { img.onload = onLoad; }
+  }
+
+  document.querySelectorAll('[data-crop-image]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openModal(btn); });
+  });
+
+  document.getElementById('img-crop-cancel-btn').addEventListener('click', function () {
+    modal.style.display = 'none'; img.src = '';
+  });
+
+  document.querySelectorAll('.img-crop-ratio-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.img-crop-ratio-btn').forEach(function (b) { b.classList.remove('ring-2', 'ring-mint'); });
+      btn.classList.add('ring-2', 'ring-mint');
+      var r = btn.dataset.imgRatio;
+      if (r === 'free') { ratio = null; }
+      else { var parts = r.split('/').map(Number); ratio = parts[0] / parts[1]; }
+      initBox();
+    });
+  });
+
+  box.addEventListener('mousedown', function (e) {
+    if (e.target.classList.contains('img-crop-handle')) return;
+    dragging = true;
+    startMX = e.clientX; startMY = e.clientY;
+    startL = parseFloat(box.style.left); startT = parseFloat(box.style.top);
+    e.preventDefault();
+  });
+
+  box.querySelectorAll('.img-crop-handle').forEach(function (h) {
+    h.addEventListener('mousedown', function (e) {
+      resizing = true; activeHandle = e.currentTarget.dataset.h;
+      startMX = e.clientX; startMY = e.clientY;
+      startL = parseFloat(box.style.left);  startT = parseFloat(box.style.top);
+      startW = parseFloat(box.style.width); startH = parseFloat(box.style.height);
+      e.preventDefault(); e.stopPropagation();
+    });
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (modal.style.display === 'none') return;
+    if (!dragging && !resizing) return;
+    var dx = e.clientX - startMX, dy = e.clientY - startMY;
+    if (dragging) { applyBox(startL + dx, startT + dy, parseFloat(box.style.width), parseFloat(box.style.height)); return; }
+    var l = startL, t = startT, w = startW, h = startH;
+    if (activeHandle.includes('e')) w = startW + dx;
+    if (activeHandle.includes('s')) h = startH + dy;
+    if (activeHandle.includes('w')) { w = startW - dx; l = startL + dx; }
+    if (activeHandle.includes('n')) { h = startH - dy; t = startT + dy; }
+    if (ratio) {
+      if (activeHandle.includes('e') || activeHandle.includes('w')) {
+        var newH = w / ratio;
+        if (activeHandle.includes('n')) t = startT + startH - newH;
+        h = newH;
+      } else {
+        var newW = h * ratio;
+        if (activeHandle.includes('w')) l = startL + startW - newW;
+        w = newW;
+      }
+    }
+    applyBox(l, t, w, h);
+  });
+
+  document.addEventListener('mouseup', function () { dragging = false; resizing = false; });
+})();
+
 // ── Emoji Picker ──────────────────────────────────────────────────────────────
 (function () {
   const toggle = document.getElementById('emoji-toggle');

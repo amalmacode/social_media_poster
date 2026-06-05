@@ -6,7 +6,7 @@ const accountModel = require('../models/accountModel');
 const brandAccountModel = require('../models/brandAccountModel');
 const postModel = require('../models/postModel');
 const mediaService = require('../services/media/mediaService');
-const { cropVideo, screenshot } = require('../services/media/mediaProcessor');
+const { cropVideo, cropImage, probe, screenshot } = require('../services/media/mediaProcessor');
 const { relativeUploadPath } = require('../services/storage/localStorageService');
 const AppError = require('../utils/AppError');
 
@@ -251,4 +251,55 @@ async function cropMedia(req, res, next) {
   }
 }
 
-module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, history, scheduled, reschedulePost, cropMedia };
+async function cropImageMedia(req, res, next) {
+  try {
+    const media = await mediaModel.findForUser(req.params.id, req.user.id);
+    if (!media) throw new AppError('Media not found.', 404);
+    if (!media.mime_type?.startsWith('image/')) throw new AppError('Only images can be cropped here.', 400);
+
+    // Resolve dimensions — use stored values or probe the file for older uploads
+    let { width, height } = media;
+    if (!width || !height) {
+      const inputPath = path.resolve(process.cwd(), media.file_path);
+      try {
+        const meta = await probe(inputPath);
+        const stream = meta.streams.find((s) => s.codec_type === 'video');
+        if (stream) { width = stream.width || null; height = stream.height || null; }
+      } catch { /* ignore */ }
+    }
+    if (!width || !height) throw new AppError('Image dimensions unknown — re-upload the file.', 400);
+
+    const pctX = parseFloat(req.body.x);
+    const pctY = parseFloat(req.body.y);
+    const pctW = parseFloat(req.body.w);
+    const pctH = parseFloat(req.body.h);
+    if ([pctX, pctY, pctW, pctH].some((v) => isNaN(v) || v < 0 || v > 100)) {
+      throw new AppError('Invalid crop coordinates.', 400);
+    }
+
+    const toEven = (n) => Math.floor(n / 2) * 2;
+    const pixX = Math.round(pctX / 100 * width);
+    const pixY = Math.round(pctY / 100 * height);
+    const pixW = toEven(Math.round(pctW / 100 * width));
+    const pixH = toEven(Math.round(pctH / 100 * height));
+    if (pixW < 2 || pixH < 2) throw new AppError('Crop area too small.', 400);
+
+    const inputPath = path.resolve(process.cwd(), media.file_path);
+    await cropImage(inputPath, pixX, pixY, pixW, pixH);
+
+    const fileStat = await stat(inputPath);
+    await mediaModel.update(media.id, req.user.id, {
+      width: pixW,
+      height: pixH,
+      thumbnailPath: media.thumbnail_path,
+      sizeBytes: fileStat.size
+    });
+
+    req.flash('success', 'Image cropped.');
+    res.redirect('/posts/new');
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, history, scheduled, reschedulePost, cropMedia, cropImageMedia };

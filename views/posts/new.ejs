@@ -39,6 +39,16 @@
                     class="absolute bottom-8 right-1 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
               &#9881; Crop
             </button>
+          <% } else { %>
+            <button type="button"
+                    data-crop-image="<%= item.id %>"
+                    data-crop-src="/<%= item.thumbnail_path %>"
+                    data-img-w="<%= item.width || 0 %>"
+                    data-img-h="<%= item.height || 0 %>"
+                    title="Crop image"
+                    class="absolute bottom-8 right-1 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+              &#9881; Crop
+            </button>
           <% } %>
           <form method="post" action="/posts/media/<%= item.id %>?_method=DELETE" class="absolute right-1 top-1">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -179,7 +189,56 @@
   </form>
 </div>
 
-<!-- ── Crop modal ──────────────────────────────────────────────────────────── -->
+<!-- ── Image Crop modal ───────────────────────────────────────────────────── -->
+<div id="img-crop-modal" style="display:none" class="fixed inset-0 z-50 items-center justify-center bg-black/75 p-4">
+  <div class="w-full max-w-2xl rounded-xl bg-white shadow-2xl">
+    <div class="flex flex-wrap items-center gap-2 border-b border-black/10 px-5 py-4">
+      <span class="mr-1 text-sm font-semibold">Aspect ratio:</span>
+      <% [
+        ['1/1',      '1:1 Square',      'ig fb tk'],
+        ['4/5',      '4:5 Portrait',    'ig'],
+        ['1.91/1',   '1.91:1 Wide',     'ig fb'],
+        ['9/16',     '9:16 Story',      'ig tk'],
+        ['2/3',      '2:3 Pinterest',   'pt'],
+        ['free',     'Free',            '']
+      ].forEach(function(r) { %>
+        <button type="button" data-img-ratio="<%= r[0] %>"
+                class="img-crop-ratio-btn rounded-full border border-black/20 px-2.5 py-0.5 text-xs font-medium hover:bg-black/5">
+          <%= r[1] %><% if (r[2]) { %> <span class="opacity-40"><%= r[2] %></span><% } %>
+        </button>
+      <% }) %>
+    </div>
+    <div class="flex items-center justify-center bg-black px-4 py-4" style="min-height:200px">
+      <div id="img-crop-wrap" class="relative" style="line-height:0">
+        <img id="img-crop-img" src="" alt="" draggable="false"
+             style="display:block;max-width:100%;max-height:55vh;user-select:none">
+        <div id="img-crop-box"
+             style="position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,0.55);cursor:move;display:none">
+          <div class="img-crop-handle" data-h="nw" style="position:absolute;left:-5px;top:-5px;width:12px;height:12px;background:#fff;cursor:nw-resize;border-radius:2px"></div>
+          <div class="img-crop-handle" data-h="ne" style="position:absolute;right:-5px;top:-5px;width:12px;height:12px;background:#fff;cursor:ne-resize;border-radius:2px"></div>
+          <div class="img-crop-handle" data-h="sw" style="position:absolute;left:-5px;bottom:-5px;width:12px;height:12px;background:#fff;cursor:sw-resize;border-radius:2px"></div>
+          <div class="img-crop-handle" data-h="se" style="position:absolute;right:-5px;bottom:-5px;width:12px;height:12px;background:#fff;cursor:se-resize;border-radius:2px"></div>
+        </div>
+      </div>
+    </div>
+    <form id="img-crop-form" method="post" action="" class="flex items-center justify-between gap-3 px-5 py-4">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" id="img-crop-x" name="x" value="0">
+      <input type="hidden" id="img-crop-y" name="y" value="0">
+      <input type="hidden" id="img-crop-w" name="w" value="100">
+      <input type="hidden" id="img-crop-h" name="h" value="100">
+      <span id="img-crop-info" class="text-xs text-black/40"></span>
+      <div class="flex gap-2">
+        <button type="button" id="img-crop-cancel-btn"
+                class="rounded-md border border-black/20 px-4 py-2 text-sm font-medium">Cancel</button>
+        <button type="submit"
+                class="rounded-md bg-mint px-4 py-2 text-sm font-semibold text-white">Apply Crop</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Video Crop modal ────────────────────────────────────────────────────── -->
 <div id="crop-modal" style="display:none" class="fixed inset-0 z-50 items-center justify-center bg-black/75 p-4">
   <div class="w-full max-w-2xl rounded-xl bg-white shadow-2xl">
     <!-- Header -->
