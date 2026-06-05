@@ -116,9 +116,8 @@
       </form>
     <% } %>
 
-    <!-- Upload new watermark -->
-    <form method="post" action="/accounts/brands/<%= brand.id %>/watermark" enctype="multipart/form-data" class="mt-4 <%= brand.watermark_path ? 'pt-4 border-t border-black/8' : '' %>">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <!-- Upload new watermark — CSRF token must be in query string for multipart/form-data -->
+    <form method="post" action="/accounts/brands/<%= brand.id %>/watermark?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="mt-4 <%= brand.watermark_path ? 'pt-4 border-t border-black/8' : '' %>">
       <p class="text-xs font-medium text-black/60 mb-2"><%= brand.watermark_path ? 'Replace watermark' : 'Upload watermark' %></p>
       <div class="flex flex-wrap gap-3 items-end">
         <div>
