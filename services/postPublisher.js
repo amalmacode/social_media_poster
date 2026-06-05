@@ -27,7 +27,7 @@ async function publishPost(postId) {
       if (seen.has(m.id)) return seen.get(m.id);
       const inputAbs = path.resolve(process.cwd(), m.file_path);
       try {
-        const tmpAbs = await applyWatermark(inputAbs, wmAbs, watermarkCfg.opacity, watermarkCfg.position);
+        const tmpAbs = await applyWatermark(inputAbs, wmAbs, watermarkCfg.opacity, watermarkCfg.position, watermarkCfg.size);
         tempFiles.push(tmpAbs);
         console.log(`[Watermark] Created watermarked copy: ${path.basename(tmpAbs)}`);
         const result = { ...m, file_path: path.relative(process.cwd(), tmpAbs).replace(/\\/g, '/') };

@@ -88,7 +88,8 @@ async function createPost(req, res, next) {
     const watermarkCfg = brandWithWatermark ? {
       path: brandWithWatermark.watermark_path,
       opacity: parseFloat(brandWithWatermark.watermark_opacity) || 0.5,
-      position: brandWithWatermark.watermark_position || 'center'
+      position: brandWithWatermark.watermark_position || 'center',
+      size: parseInt(brandWithWatermark.watermark_size, 10) || 20
     } : null;
     const individualIds = Array.isArray(value.accounts) ? value.accounts : [value.accounts].filter(Boolean);
     const allAccountIds = [...new Set([...brandAccountIds, ...individualIds])];

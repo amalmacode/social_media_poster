@@ -96,6 +96,10 @@ CREATE TABLE IF NOT EXISTS brand_accounts (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name text NOT NULL,
+  watermark_path text,
+  watermark_opacity numeric NOT NULL DEFAULT 0.5,
+  watermark_position text NOT NULL DEFAULT 'center',
+  watermark_size int NOT NULL DEFAULT 20,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_brand_accounts_user ON brand_accounts(user_id);

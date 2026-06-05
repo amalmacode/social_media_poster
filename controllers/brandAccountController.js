@@ -96,9 +96,10 @@ async function uploadWatermark(req, res, next) {
     const opacity = Math.min(1, Math.max(0.05, (parseInt(req.body.opacity, 10) || 50) / 100));
     const position = ['center', 'top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(req.body.position)
       ? req.body.position : 'center';
+    const size = Math.min(50, Math.max(5, parseInt(req.body.size, 10) || 20));
     const relativePath = path.relative(process.cwd(), req.file.path).replace(/\\/g, '/');
 
-    await brandAccountModel.updateWatermark(brand.id, req.user.id, { watermarkPath: relativePath, opacity, position });
+    await brandAccountModel.updateWatermark(brand.id, req.user.id, { watermarkPath: relativePath, opacity, position, size });
     req.flash('success', 'Watermark saved.');
     res.redirect(`/accounts/brands/${brand.id}`);
   } catch (error) {
@@ -131,8 +132,9 @@ async function updateWatermarkSettings(req, res, next) {
     const opacity = Math.min(1, Math.max(0.05, (parseInt(req.body.opacity, 10) || 50) / 100));
     const position = ['center', 'top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(req.body.position)
       ? req.body.position : 'center';
+    const size = Math.min(50, Math.max(5, parseInt(req.body.size, 10) || 20));
 
-    await brandAccountModel.updateWatermark(brand.id, req.user.id, { watermarkPath: brand.watermark_path, opacity, position });
+    await brandAccountModel.updateWatermark(brand.id, req.user.id, { watermarkPath: brand.watermark_path, opacity, position, size });
     req.flash('success', 'Watermark settings updated.');
     res.redirect(`/accounts/brands/${brand.id}`);
   } catch (error) {

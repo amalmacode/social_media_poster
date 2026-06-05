@@ -165,7 +165,7 @@ const OVERLAY_POSITIONS = {
 
 // Composites a watermark PNG/WebP over any image or video. Returns the temp output path.
 // Caller is responsible for deleting the temp file after use.
-async function applyWatermark(inputPath, watermarkPath, opacity, position) {
+async function applyWatermark(inputPath, watermarkPath, opacity, position, size) {
   const ext = path.extname(inputPath);
   const base = path.basename(inputPath, ext);
   const dir = path.dirname(inputPath);
@@ -173,8 +173,10 @@ async function applyWatermark(inputPath, watermarkPath, opacity, position) {
 
   const op = Math.min(1, Math.max(0.01, parseFloat(opacity) || 0.5)).toFixed(3);
   const overlayPos = OVERLAY_POSITIONS[position] || OVERLAY_POSITIONS.center;
-  // [outv] label + explicit -map ensures ffmpeg writes the filtered stream to output
-  const filter = `[1:v]format=argb,colorchannelmixer=aa=${op}[wm];[0:v][wm]overlay=${overlayPos}[outv]`;
+  const sizePct = Math.min(50, Math.max(5, parseInt(size, 10) || 20));
+  // scale2ref scales the watermark (input 1) relative to the media (input 0) width,
+  // then colorchannelmixer adjusts opacity, then overlay composites it
+  const filter = `[1:v][0:v]scale2ref=w=iw*${sizePct}/100:h=-2[wm_s][main];[wm_s]format=argb,colorchannelmixer=aa=${op}[wm];[main][wm]overlay=${overlayPos}[outv]`;
   const isImage = /\.(jpe?g|png|gif|webp)$/i.test(inputPath);
 
   await new Promise((resolve, reject) => {

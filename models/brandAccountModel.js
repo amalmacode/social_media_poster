@@ -16,7 +16,7 @@ const MEMBERS_AGG = `
 
 async function listByUser(userId) {
   const { rows } = await query(
-    `SELECT ba.id, ba.name, ba.watermark_path, ba.watermark_opacity, ba.watermark_position, ba.created_at, ${MEMBERS_AGG}
+    `SELECT ba.id, ba.name, ba.watermark_path, ba.watermark_opacity, ba.watermark_position, ba.watermark_size, ba.created_at, ${MEMBERS_AGG}
      FROM brand_accounts ba
      LEFT JOIN brand_account_members bam ON bam.brand_account_id = ba.id
      LEFT JOIN connected_accounts ca ON ca.id = bam.connected_account_id
@@ -30,7 +30,7 @@ async function listByUser(userId) {
 
 async function findWithMembers(id, userId) {
   const { rows } = await query(
-    `SELECT ba.id, ba.name, ba.user_id, ba.watermark_path, ba.watermark_opacity, ba.watermark_position, ba.created_at, ${MEMBERS_AGG}
+    `SELECT ba.id, ba.name, ba.user_id, ba.watermark_path, ba.watermark_opacity, ba.watermark_position, ba.watermark_size, ba.created_at, ${MEMBERS_AGG}
      FROM brand_accounts ba
      LEFT JOIN brand_account_members bam ON bam.brand_account_id = ba.id
      LEFT JOIN connected_accounts ca ON ca.id = bam.connected_account_id
@@ -41,12 +41,12 @@ async function findWithMembers(id, userId) {
   return rows[0] || null;
 }
 
-async function updateWatermark(id, userId, { watermarkPath, opacity, position }) {
+async function updateWatermark(id, userId, { watermarkPath, opacity, position, size }) {
   const { rows } = await query(
     `UPDATE brand_accounts
-     SET watermark_path = $3, watermark_opacity = $4, watermark_position = $5
+     SET watermark_path = $3, watermark_opacity = $4, watermark_position = $5, watermark_size = $6
      WHERE id = $1 AND user_id = $2 RETURNING *`,
-    [id, userId, watermarkPath || null, opacity ?? 0.5, position || 'center']
+    [id, userId, watermarkPath || null, opacity ?? 0.5, position || 'center', size ?? 20]
   );
   return rows[0] || null;
 }
