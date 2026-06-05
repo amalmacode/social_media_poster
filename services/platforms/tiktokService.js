@@ -8,7 +8,11 @@ const { toSignedPublicUrl } = require('../storage/localStorageService');
 const TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
 const API = 'https://open.tiktokapis.com/v2';
 
-const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB
+// TikTok allows chunk_size up to 64 MB.
+// Using a single chunk for files ≤ 64 MB avoids chunk-count validation errors
+// (TikTok strictly validates total_chunk_count == ceil(video_size / chunk_size)).
+// Files > 64 MB are split into 64 MB chunks to stay within the API maximum.
+const MAX_CHUNK_SIZE = 64 * 1024 * 1024; // 64 MB
 
 class TikTokService extends BasePlatformService {
   constructor() {
@@ -79,10 +83,7 @@ class TikTokService extends BasePlatformService {
   async publishVideo(account, media, title, privacyLevel) {
     const filePath = path.resolve(process.cwd(), media.file_path);
     const fileSize = fs.statSync(filePath).size;
-    // chunk_size must match the actual bytes sent per chunk.
-    // TikTok requires 5 MB ≤ chunk_size ≤ 64 MB except for files smaller than 5 MB
-    // where chunk_size == video_size (single chunk).
-    const chunkSize = Math.min(CHUNK_SIZE, fileSize);
+    const chunkSize = fileSize <= MAX_CHUNK_SIZE ? fileSize : MAX_CHUNK_SIZE;
     const totalChunks = Math.ceil(fileSize / chunkSize);
 
     let initRes;
