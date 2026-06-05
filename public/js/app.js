@@ -190,6 +190,48 @@ if (mediaGrid) {
   });
 }
 
+// ── Watermark live preview (brand settings page) ──────────────────────────────
+(function () {
+  const previewImg  = document.getElementById('wm-preview-img');
+  const sizeInput   = document.getElementById('wm-size');
+  const opacityInput = document.getElementById('wm-opacity');
+  const posSelect   = document.getElementById('wm-position');
+  if (!previewImg || !sizeInput || !opacityInput || !posSelect) return;
+
+  const sizeLabel    = document.getElementById('wm-size-label');
+  const opacityLabel = document.getElementById('wm-opacity-label');
+
+  const POS = {
+    'center':       { top: '50%', left: '50%', right: '', bottom: '', transform: 'translate(-50%,-50%)' },
+    'top-left':     { top: '5%',  left: '5%',  right: '', bottom: '', transform: '' },
+    'top-right':    { top: '5%',  right: '5%', left: '', bottom: '', transform: '' },
+    'bottom-left':  { bottom: '5%', left: '5%', top: '', right: '', transform: '' },
+    'bottom-right': { bottom: '5%', right: '5%', top: '', left: '', transform: '' }
+  };
+
+  function update() {
+    var size    = sizeInput.value;
+    var opacity = opacityInput.value / 100;
+    var pos     = POS[posSelect.value] || POS['center'];
+
+    previewImg.style.width     = size + '%';
+    previewImg.style.opacity   = opacity;
+    previewImg.style.top       = pos.top    || '';
+    previewImg.style.left      = pos.left   || '';
+    previewImg.style.right     = pos.right  || '';
+    previewImg.style.bottom    = pos.bottom || '';
+    previewImg.style.transform = pos.transform || '';
+
+    if (sizeLabel)    sizeLabel.textContent    = size + '% of width';
+    if (opacityLabel) opacityLabel.textContent = Math.round(opacity * 100) + '%';
+  }
+
+  sizeInput.addEventListener('input', update);
+  opacityInput.addEventListener('input', update);
+  posSelect.addEventListener('change', update);
+  update(); // set initial position on page load
+})();
+
 // Auto-reload when any media item is still being processed (crop in progress)
 if (document.querySelector('[data-media-processing]')) {
   setTimeout(() => location.reload(), 4000);

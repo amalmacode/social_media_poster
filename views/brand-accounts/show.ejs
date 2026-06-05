@@ -82,43 +82,67 @@
     <p class="mt-1 text-xs text-black/45">PNG or WebP with transparency. Applied automatically to every image and video posted under this brand.</p>
 
     <% if (brand.watermark_path) { %>
-      <!-- Current watermark preview + settings -->
-      <div class="mt-4 flex flex-wrap items-start gap-5">
-        <div class="relative flex-shrink-0">
-          <div class="flex h-28 w-28 items-center justify-center rounded-lg border border-black/10 bg-[#888] bg-[repeating-conic-gradient(#aaa_0%_25%,#ccc_0%_50%)] bg-[length:16px_16px]">
-            <img src="/<%= brand.watermark_path %>?v=<%= brand.updated_at || Date.now() %>"
-                 alt="Watermark" class="max-h-full max-w-full object-contain">
+      <div class="mt-4 grid gap-5 lg:grid-cols-2">
+
+        <!-- Settings form -->
+        <form method="post" action="/accounts/brands/<%= brand.id %>/watermark-settings">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-medium text-black/60">Size</label>
+            <span class="rounded-full bg-mint/10 px-2 py-0.5 text-xs font-semibold text-mint" id="wm-size-label"><%= brand.watermark_size || 20 %>% of width</span>
           </div>
-          <p class="mt-1 text-center text-xs text-black/40">Preview on checkered</p>
+          <input id="wm-size" type="range" name="size" min="5" max="50" step="5"
+                 value="<%= brand.watermark_size || 20 %>"
+                 class="mt-1 w-full accent-mint">
+
+          <div class="mt-4 flex items-center justify-between">
+            <label class="text-xs font-medium text-black/60">Opacity</label>
+            <span class="rounded-full bg-mint/10 px-2 py-0.5 text-xs font-semibold text-mint" id="wm-opacity-label"><%= Math.round((brand.watermark_opacity || 0.5) * 100) %>%</span>
+          </div>
+          <input id="wm-opacity" type="range" name="opacity" min="5" max="100" step="5"
+                 value="<%= Math.round((brand.watermark_opacity || 0.5) * 100) %>"
+                 class="mt-1 w-full accent-mint">
+
+          <label class="mt-4 block text-xs font-medium text-black/60">Position</label>
+          <select id="wm-position" name="position" class="mt-1 w-full rounded-md border border-black/15 px-3 py-1.5 text-sm">
+            <% [['center','Center (recommended)'],['top-left','Top left'],['top-right','Top right'],['bottom-left','Bottom left'],['bottom-right','Bottom right']].forEach(function(p){ %>
+              <option value="<%= p[0] %>" <%= brand.watermark_position === p[0] ? 'selected' : '' %>><%= p[1] %></option>
+            <% }) %>
+          </select>
+
+          <div class="mt-4 flex items-center gap-3">
+            <button class="rounded-md bg-mint px-4 py-1.5 text-sm font-semibold text-white">Save settings</button>
+            <form method="post" action="/accounts/brands/<%= brand.id %>/watermark?_method=DELETE"
+                  data-confirm="Remove the watermark from this brand?" class="inline">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="text-xs font-medium text-red-500 hover:underline">Remove watermark</button>
+            </form>
+          </div>
+        </form>
+
+        <!-- Live preview -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-medium text-black/60">Live preview</p>
+            <p class="text-xs text-black/30">Updates as you adjust sliders</p>
+          </div>
+          <div id="wm-preview"
+               class="relative overflow-hidden rounded-lg border border-black/10"
+               style="aspect-ratio:16/9;background:repeating-conic-gradient(#d1d5db 0% 25%,#f3f4f6 0% 50%) 0 0/24px 24px">
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span class="rounded bg-black/10 px-2 py-1 text-xs text-black/30 select-none">Your photo / video</span>
+            </div>
+            <img id="wm-preview-img"
+                 src="/<%= brand.watermark_path %>"
+                 alt=""
+                 class="absolute max-w-none pointer-events-none select-none"
+                 style="width:<%= brand.watermark_size || 20 %>%;opacity:<%= brand.watermark_opacity || 0.5 %>">
+          </div>
+          <p class="mt-1 text-xs text-black/30">Approximate — exact rendering done by ffmpeg at publish time</p>
         </div>
-        <div class="flex-1 min-w-48">
-          <form method="post" action="/accounts/brands/<%= brand.id %>/watermark-settings">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <label class="block text-xs font-medium text-black/60">Size — <span id="size-label"><%= brand.watermark_size || 20 %>% of media width</span></label>
-            <input type="range" name="size" min="5" max="50" step="5"
-                   value="<%= brand.watermark_size || 20 %>"
-                   class="mt-1 w-full accent-mint"
-                   oninput="document.getElementById('size-label').textContent = this.value + '% of media width'">
-            <label class="mt-3 block text-xs font-medium text-black/60">Opacity — <span id="opacity-label"><%= Math.round((brand.watermark_opacity || 0.5) * 100) %>%</span></label>
-            <input type="range" name="opacity" min="5" max="100" step="5"
-                   value="<%= Math.round((brand.watermark_opacity || 0.5) * 100) %>"
-                   class="mt-1 w-full accent-mint"
-                   oninput="document.getElementById('opacity-label').textContent = this.value + '%'">
-            <label class="mt-3 block text-xs font-medium text-black/60">Position</label>
-            <select name="position" class="mt-1 w-full rounded-md border border-black/15 px-3 py-1.5 text-sm">
-              <% [['center','Center (recommended)'],['top-left','Top left'],['top-right','Top right'],['bottom-left','Bottom left'],['bottom-right','Bottom right']].forEach(function(p){ %>
-                <option value="<%= p[0] %>" <%= brand.watermark_position === p[0] ? 'selected' : '' %>><%= p[1] %></option>
-              <% }) %>
-            </select>
-            <button class="mt-3 rounded-md bg-mint px-4 py-1.5 text-sm font-semibold text-white">Save settings</button>
-          </form>
-        </div>
+
       </div>
-      <form method="post" action="/accounts/brands/<%= brand.id %>/watermark?_method=DELETE" class="mt-4"
-            data-confirm="Remove the watermark from this brand?">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button class="text-xs font-medium text-red-600 hover:underline">Remove watermark</button>
-      </form>
     <% } %>
 
     <!-- Upload new watermark — CSRF token must be in query string for multipart/form-data -->
