@@ -130,10 +130,11 @@
               <% }) %>
             </div>
           </div>
-          <div class="flex justify-center">
+          <!-- Fixed-height wrapper: aspect-ratio drives width, not height -->
+          <div class="flex justify-center" style="height:260px">
             <div id="wm-preview"
-                 class="relative overflow-hidden rounded-lg border border-black/10 w-full"
-                 style="aspect-ratio:16/9;max-height:260px;background:repeating-conic-gradient(#d1d5db 0% 25%,#f3f4f6 0% 50%) 0 0/24px 24px">
+                 class="relative overflow-hidden rounded-lg border border-black/10 h-full"
+                 style="aspect-ratio:16/9;max-width:100%;background:repeating-conic-gradient(#d1d5db 0% 25%,#f3f4f6 0% 50%) 0 0/24px 24px">
               <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <span class="rounded bg-black/10 px-2 py-1 text-xs text-black/30 select-none">Your photo / video</span>
               </div>
