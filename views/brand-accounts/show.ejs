@@ -111,14 +111,13 @@
             <% }) %>
           </select>
 
-          <div class="mt-4 flex items-center gap-3">
-            <button class="rounded-md bg-mint px-4 py-1.5 text-sm font-semibold text-white">Save settings</button>
-            <form method="post" action="/accounts/brands/<%= brand.id %>/watermark?_method=DELETE"
-                  data-confirm="Remove the watermark from this brand?" class="inline">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <button class="text-xs font-medium text-red-500 hover:underline">Remove watermark</button>
-            </form>
-          </div>
+          <button class="mt-4 rounded-md bg-mint px-4 py-1.5 text-sm font-semibold text-white">Save settings</button>
+        </form>
+
+        <form method="post" action="/accounts/brands/<%= brand.id %>/watermark?_method=DELETE"
+              class="mt-2" data-confirm="Remove the watermark from this brand?">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="text-xs font-medium text-red-500 hover:underline">Remove watermark</button>
         </form>
 
         <!-- Live preview -->
