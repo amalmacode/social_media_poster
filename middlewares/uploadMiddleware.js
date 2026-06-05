@@ -28,4 +28,28 @@ const upload = multer({
   }
 });
 
-module.exports = { upload };
+// Watermark uploads — PNG/WebP only, stored at uploads/<userId>/watermarks/<brandId>/
+const watermarkStorage = multer.diskStorage({
+  destination(req, file, cb) {
+    const dir = path.join(env.uploadRoot, req.user.id, 'watermarks', req.params.id);
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename(req, file, cb) {
+    const ext = file.mimetype === 'image/webp' ? '.webp' : '.png';
+    cb(null, `watermark${ext}`);
+  }
+});
+
+const watermarkUpload = multer({
+  storage: watermarkStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (!['image/png', 'image/webp'].includes(file.mimetype)) {
+      return cb(new AppError('Watermark must be a PNG or WebP image (transparency required).', 400));
+    }
+    cb(null, true);
+  }
+});
+
+module.exports = { upload, watermarkUpload };

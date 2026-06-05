@@ -79,7 +79,16 @@ async function createPost(req, res, next) {
 
     // Resolve brand accounts → connected_account_ids, merge with individually selected accounts
     const brandIds = Array.isArray(value.brandAccountIds) ? value.brandAccountIds : [value.brandAccountIds].filter(Boolean);
-    const brandAccountIds = brandIds.length ? await brandAccountModel.resolveToAccountIds(brandIds) : [];
+    const [brandAccountIds, brandDetails] = await Promise.all([
+      brandIds.length ? brandAccountModel.resolveToAccountIds(brandIds) : Promise.resolve([]),
+      brandIds.length ? Promise.all(brandIds.map((id) => brandAccountModel.findWithMembers(id, req.user.id))) : Promise.resolve([])
+    ]);
+    const brandWithWatermark = brandDetails.find((b) => b?.watermark_path);
+    const watermarkCfg = brandWithWatermark ? {
+      path: brandWithWatermark.watermark_path,
+      opacity: parseFloat(brandWithWatermark.watermark_opacity) || 0.5,
+      position: brandWithWatermark.watermark_position || 'center'
+    } : null;
     const individualIds = Array.isArray(value.accounts) ? value.accounts : [value.accounts].filter(Boolean);
     const allAccountIds = [...new Set([...brandAccountIds, ...individualIds])];
     if (!allAccountIds.length) throw new AppError('Choose at least one brand account or platform connection.', 400);
@@ -94,6 +103,7 @@ async function createPost(req, res, next) {
       caption: value.caption,
       scheduledFor: value.publishMode === 'schedule' ? value.scheduledFor : null,
       platformPayloads: {
+        ...(watermarkCfg && { watermark: watermarkCfg }),
         youtube: { title: value.youtubeTitle, description: value.caption },
         tiktok: { title: value.tiktokTitle || value.caption, privacyLevel: value.tiktokPrivacy },
         pinterest: {

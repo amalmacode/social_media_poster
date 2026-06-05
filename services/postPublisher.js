@@ -1,12 +1,46 @@
+const path = require('path');
+const { unlink } = require('fs').promises;
 const postModel = require('../models/postModel');
 const accountModel = require('../models/accountModel');
 const { getPlatformService } = require('./platforms/platformRegistry');
+const { applyWatermark } = require('./media/mediaProcessor');
 const { query } = require('../config/db');
 
 async function publishPost(postId) {
   const post = await postModel.findWithTargets(postId);
   if (!post) throw new Error(`Post ${postId} not found`);
   await postModel.updatePostStatus(postId, 'processing');
+
+  // Apply watermark to all media items once, before the platform loop
+  const watermarkCfg = post.platform_payloads?.watermark;
+  const tempFiles = [];
+  let publishMedia = post.media;
+  let publishItems = post.mediaItems;
+
+  if (watermarkCfg?.path) {
+    const wmAbs = path.resolve(process.cwd(), watermarkCfg.path);
+    const seen = new Map(); // de-duplicate by media id
+
+    async function withWatermark(m) {
+      if (!m) return null;
+      if (seen.has(m.id)) return seen.get(m.id);
+      const inputAbs = path.resolve(process.cwd(), m.file_path);
+      try {
+        const tmpAbs = await applyWatermark(inputAbs, wmAbs, watermarkCfg.opacity, watermarkCfg.position);
+        tempFiles.push(tmpAbs);
+        const result = { ...m, file_path: path.relative(process.cwd(), tmpAbs).replace(/\\/g, '/') };
+        seen.set(m.id, result);
+        return result;
+      } catch (err) {
+        console.warn(`[Watermark] Skipping watermark for ${m.file_path}: ${err.message}`);
+        seen.set(m.id, m);
+        return m;
+      }
+    }
+
+    publishItems = await Promise.all((post.mediaItems || []).map(withWatermark));
+    publishMedia = post.media ? (seen.get(post.media.id) || await withWatermark(post.media)) : null;
+  }
 
   let success = 0;
   let failed = 0;
@@ -20,7 +54,7 @@ async function publishPost(postId) {
     try {
       const account = await accountModel.findForUser(target.connected_account_id, post.user_id);
       const service = getPlatformService(target.platform);
-      const result = await service.publish({ account, post, media: post.media, mediaItems: post.mediaItems, target });
+      const result = await service.publish({ account, post, media: publishMedia, mediaItems: publishItems, target });
       await postModel.updateTargetStatus(target.id, {
         status: 'success',
         remotePostId: result.remotePostId,
@@ -64,6 +98,9 @@ async function publishPost(postId) {
   const totalSuccess = success + prevSuccess;
   const status = failed === 0 ? 'success' : totalSuccess > 0 ? 'partial_success' : 'failed';
   await postModel.updatePostStatus(postId, status);
+
+  // Clean up temp watermarked files (best-effort — don't let cleanup errors mask publish errors)
+  await Promise.all(tempFiles.map((f) => unlink(f).catch(() => {})));
 
   // Throw after persisting status so BullMQ retries only when there are retryable failures
   if (hasRetryable) throw new Error(`Retryable failures on post ${postId}`);

@@ -155,4 +155,40 @@ async function cropImage(inputPath, x, y, w, h) {
   try { await unlink(tmpPath); } catch { /* ignore */ }
 }
 
-module.exports = { processMedia, cropVideo, cropImage, probe, screenshot };
+const OVERLAY_POSITIONS = {
+  'center':       '(W-w)/2:(H-h)/2',
+  'top-left':     '10:10',
+  'top-right':    'W-w-10:10',
+  'bottom-left':  '10:H-h-10',
+  'bottom-right': 'W-w-10:H-h-10'
+};
+
+// Composites a watermark PNG/WebP over any image or video. Returns the temp output path.
+// Caller is responsible for deleting the temp file after use.
+async function applyWatermark(inputPath, watermarkPath, opacity, position) {
+  const ext = path.extname(inputPath);
+  const base = path.basename(inputPath, ext);
+  const dir = path.dirname(inputPath);
+  const tmpPath = path.join(dir, `${base}-wm-${Date.now()}${ext}`);
+
+  const op = Math.min(1, Math.max(0.01, parseFloat(opacity) || 0.5)).toFixed(3);
+  const overlayPos = OVERLAY_POSITIONS[position] || OVERLAY_POSITIONS.center;
+  const filter = `[1:v]format=argb,colorchannelmixer=aa=${op}[wm];[0:v][wm]overlay=${overlayPos}`;
+  const isImage = /\.(jpe?g|png|gif|webp)$/i.test(inputPath);
+
+  await new Promise((resolve, reject) => {
+    const cmd = ffmpeg(inputPath)
+      .input(watermarkPath)
+      .complexFilter(filter);
+    if (isImage) {
+      cmd.outputOptions(['-frames:v', '1', '-q:v', '2']);
+    } else {
+      cmd.outputOptions(['-codec:a', 'copy']);
+    }
+    cmd.on('end', resolve).on('error', reject).save(tmpPath);
+  });
+
+  return tmpPath;
+}
+
+module.exports = { processMedia, cropVideo, cropImage, applyWatermark, probe, screenshot };

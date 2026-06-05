@@ -2,6 +2,7 @@ const express = require('express');
 const accountController = require('../controllers/accountController');
 const brandAccountController = require('../controllers/brandAccountController');
 const { ensureAuthenticated } = require('../middlewares/authMiddleware');
+const { watermarkUpload } = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
 
@@ -22,6 +23,9 @@ router.post('/brands/:id/rename', ensureAuthenticated, brandAccountController.re
 router.post('/brands/:id/members', ensureAuthenticated, brandAccountController.addMember);
 router.delete('/brands/:id/members/:accountId', ensureAuthenticated, brandAccountController.removeMember);
 router.delete('/brands/:id', ensureAuthenticated, brandAccountController.remove);
+router.post('/brands/:id/watermark', ensureAuthenticated, watermarkUpload.single('watermark'), brandAccountController.uploadWatermark);
+router.post('/brands/:id/watermark-settings', ensureAuthenticated, brandAccountController.updateWatermarkSettings);
+router.delete('/brands/:id/watermark', ensureAuthenticated, brandAccountController.removeWatermark);
 
 router.delete('/:id', ensureAuthenticated, accountController.disconnect);
 
