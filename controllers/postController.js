@@ -47,16 +47,22 @@ async function newPost(req, res, next) {
 }
 
 async function uploadMedia(req, res, next) {
+  const isXhr = req.headers['x-requested-with'] === 'XMLHttpRequest';
   try {
     const files = req.files;
-    if (!files || !files.length) throw new AppError('Please choose at least one image or video.', 400);
+    if (!files || !files.length) {
+      if (isXhr) return res.status(400).json({ error: 'Please choose at least one image or video.' });
+      throw new AppError('Please choose at least one image or video.', 400);
+    }
     const results = await Promise.all(files.map((f) => mediaService.createFromUpload(req.user.id, f)));
     const errors = results.flatMap((m) => m.validation_errors);
     const ok = results.length - results.filter((m) => m.validation_errors.length).length;
+    if (isXhr) return res.json({ ok, errors });
     if (errors.length) req.flash('error', errors.join(' '));
     if (ok) req.flash('success', ok === 1 ? '1 file uploaded.' : `${ok} files uploaded.`);
     res.redirect('/posts/new');
   } catch (error) {
+    if (isXhr) return res.status(error.statusCode || 500).json({ error: error.message || 'Upload failed.' });
     next(error);
   }
 }

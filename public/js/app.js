@@ -701,28 +701,135 @@ document.querySelectorAll('input[name="publishMode"]').forEach((input) => {
   });
 })();
 
-const dropzone = document.querySelector('[data-dropzone]');
-if (dropzone) {
-  const input = dropzone.querySelector('input[type="file"]');
-  const fileName = dropzone.querySelector('[data-file-name]');
-  const showSelectedFile = () => {
+const uploadForm = document.querySelector('form[action*="/posts/media"]');
+if (uploadForm) {
+  const dropzone = uploadForm.querySelector('[data-dropzone]');
+  const input = uploadForm.querySelector('input[type="file"]');
+  const fileName = uploadForm.querySelector('[data-file-name]');
+  const btn = uploadForm.querySelector('button[type="submit"]');
+
+  const MAX_FILE_BYTES = 250 * 1024 * 1024;  // 250 MB — matches server limit
+  const MAX_TOTAL_BYTES = 500 * 1024 * 1024; // 500 MB total batch limit
+
+  // Inject error banner and progress bar after the form
+  const errorBanner = document.createElement('div');
+  errorBanner.className = 'mt-2 hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700';
+  uploadForm.insertAdjacentElement('afterend', errorBanner);
+
+  const progressWrap = document.createElement('div');
+  progressWrap.className = 'mt-2 hidden';
+  progressWrap.innerHTML =
+    '<div class="mb-1 flex items-center justify-between text-xs text-black/50">' +
+      '<span data-upload-label>Uploading…</span><span data-upload-pct>0%</span>' +
+    '</div>' +
+    '<div class="h-1.5 w-full overflow-hidden rounded-full bg-black/10">' +
+      '<div class="h-1.5 rounded-full bg-mint transition-all duration-300" style="width:0%" data-upload-bar></div>' +
+    '</div>';
+  errorBanner.insertAdjacentElement('afterend', progressWrap);
+
+  function showError(msg) {
+    errorBanner.textContent = msg;
+    errorBanner.classList.remove('hidden');
+    progressWrap.classList.add('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Upload';
+  }
+
+  function setProgress(pct, label) {
+    progressWrap.classList.remove('hidden');
+    errorBanner.classList.add('hidden');
+    progressWrap.querySelector('[data-upload-pct]').textContent = pct + '%';
+    progressWrap.querySelector('[data-upload-bar]').style.width = pct + '%';
+    if (label) progressWrap.querySelector('[data-upload-label]').textContent = label;
+  }
+
+  const updateFileLabel = () => {
     if (!fileName) return;
-    const count = input.files?.length || 0;
-    fileName.textContent = count === 0 ? 'No file selected' : count === 1 ? input.files[0].name : `${count} files selected`;
+    const count = input.files ? input.files.length : 0;
+    fileName.textContent = count === 0 ? 'No file selected' : count === 1 ? input.files[0].name : count + ' files selected';
     fileName.classList.toggle('text-mint', count > 0);
+    errorBanner.classList.add('hidden');
   };
 
-  input.addEventListener('change', showSelectedFile);
-  ['dragenter', 'dragover'].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    dropzone.classList.add('border-mint', 'bg-emerald-50');
-  }));
-  ['dragleave', 'drop'].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    dropzone.classList.remove('border-mint', 'bg-emerald-50');
-  }));
-  dropzone.addEventListener('drop', (event) => {
-    input.files = event.dataTransfer.files;
-    showSelectedFile();
+  input.addEventListener('change', updateFileLabel);
+
+  if (dropzone) {
+    ['dragenter', 'dragover'].forEach((ev) => dropzone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      dropzone.classList.add('border-mint', 'bg-emerald-50');
+    }));
+    ['dragleave', 'drop'].forEach((ev) => dropzone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('border-mint', 'bg-emerald-50');
+    }));
+    dropzone.addEventListener('drop', (e) => {
+      input.files = e.dataTransfer.files;
+      updateFileLabel();
+    });
+  }
+
+  uploadForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    errorBanner.classList.add('hidden');
+
+    const files = Array.from(input.files || []);
+    if (!files.length) return showError('Please select at least one file.');
+
+    // Per-file size check
+    const oversized = files.find((f) => f.size > MAX_FILE_BYTES);
+    if (oversized) return showError('"' + oversized.name + '" is too large — maximum 250 MB per file.');
+
+    // Total batch size check
+    const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+    if (totalBytes > MAX_TOTAL_BYTES) {
+      const mb = Math.round(totalBytes / 1024 / 1024);
+      return showError('Total upload size (' + mb + ' MB) exceeds the 500 MB batch limit. Upload fewer files at a time.');
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    setProgress(0, 'Uploading…');
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', uploadForm.getAttribute('action'));
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.timeout = 600000; // 10 min ceiling — very large files still get time
+
+    xhr.upload.addEventListener('progress', (ev) => {
+      if (!ev.lengthComputable) return;
+      const pct = Math.round((ev.loaded / ev.total) * 100);
+      setProgress(pct, pct < 100 ? 'Uploading…' : 'Processing…');
+    });
+
+    xhr.addEventListener('load', () => {
+      progressWrap.classList.add('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Upload';
+
+      let data = null;
+      try { data = JSON.parse(xhr.responseText); } catch (_) { /* non-JSON response */ }
+
+      if (xhr.status >= 200 && xhr.status < 300 && data !== null && !data.error) {
+        // Reload to display the newly uploaded media; flash messages come via session
+        window.location.href = '/posts/new';
+      } else {
+        const msg = data && data.error
+          ? data.error
+          : 'Upload failed (HTTP ' + xhr.status + '). The files may be too large or the request timed out. Try uploading fewer files at once.';
+        showError(msg);
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      progressWrap.classList.add('hidden');
+      showError('Upload failed — connection lost or the files exceeded the server’s size limit. Try uploading fewer or smaller files.');
+    });
+
+    xhr.addEventListener('timeout', () => {
+      progressWrap.classList.add('hidden');
+      showError('Upload timed out. Your videos may be too large — try uploading one at a time.');
+    });
+
+    xhr.send(new FormData(uploadForm));
   });
 }
