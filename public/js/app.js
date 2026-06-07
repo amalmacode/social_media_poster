@@ -833,3 +833,208 @@ if (uploadForm) {
     xhr.send(new FormData(uploadForm));
   });
 }
+
+// ── Media folder library ────────────────────────────────────────────────────
+
+(function () {
+  const folderTabs = document.getElementById('folder-tabs');
+  if (!folderTabs) return;
+
+  const mediaGrid    = document.getElementById('media-grid');
+  const folderSelect = document.getElementById('upload-folder-select');
+  const STORAGE_KEY  = 'mediaLib_activeFolderId';
+
+  function csrf() { return window.__csrfToken || ''; }
+  function getFolders() { return window.__folders || []; }
+  function activeFolderId() { return sessionStorage.getItem(STORAGE_KEY) || diversFolderId(); }
+  function diversFolderId() { const d = getFolders().find((f) => f.type === 'divers'); return d ? d.id : ''; }
+  function getTab(folderId) { return folderTabs.querySelector('[data-folder-tab][data-folder-id="' + folderId + '"]'); }
+
+  function filterGrid(folderId) {
+    sessionStorage.setItem(STORAGE_KEY, folderId);
+    document.querySelectorAll('[data-media-card]').forEach((card) => {
+      card.classList.toggle('hidden', card.dataset.folderId !== folderId);
+    });
+    if (folderSelect) folderSelect.value = folderId;
+  }
+
+  function activateTab(folderId) {
+    folderTabs.querySelectorAll('[data-folder-tab]').forEach((t) => {
+      const active = t.dataset.folderId === folderId;
+      t.classList.toggle('border-mint',    active);
+      t.classList.toggle('text-mint',      active);
+      t.classList.toggle('border-black/10', !active);
+      t.classList.toggle('text-black/60',   !active);
+    });
+    filterGrid(folderId);
+  }
+
+  function bumpCount(folderId, delta) {
+    const tab = getTab(folderId);
+    if (!tab) return;
+    const badge = tab.querySelector('[data-folder-count]');
+    if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent) || 0) + delta);
+  }
+
+  function buildMoveMenu(menu, currentFolderId, mediaId) {
+    menu.innerHTML = '';
+    getFolders().forEach((f) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'block w-full px-3 py-1.5 text-left text-xs hover:bg-black/5' +
+        (f.id === currentFolderId ? ' font-semibold text-mint' : ' text-black/70');
+      btn.textContent = f.name;
+      if (f.id === currentFolderId) btn.disabled = true;
+      btn.addEventListener('click', () => moveMedia(mediaId, f.id, menu));
+      menu.appendChild(btn);
+    });
+  }
+
+  function moveMedia(mediaId, targetFolderId, menu) {
+    menu.classList.add('hidden');
+    fetch('/posts/media/' + mediaId + '/folder', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ folderId: targetFolderId })
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) return;
+        const card = document.querySelector('[data-media-card][data-id="' + mediaId + '"]');
+        if (!card) return;
+        const prevFolder = card.dataset.folderId;
+        card.dataset.folderId = targetFolderId;
+        bumpCount(prevFolder, -1);
+        bumpCount(targetFolderId, +1);
+        if (activeFolderId() !== targetFolderId) card.classList.add('hidden');
+      })
+      .catch(() => {});
+  }
+
+  // ── folder tab clicks ────────────────────────────────────────────────────
+
+  folderTabs.addEventListener('click', (e) => {
+    const delBtn = e.target.closest('[data-delete-folder]');
+    if (delBtn) {
+      e.stopPropagation();
+      const tab = delBtn.closest('[data-folder-tab]');
+      if (!tab) return;
+      const folderId = tab.dataset.folderId;
+      const name = decodeURIComponent(tab.dataset.folderName || '');
+      if (!confirm('Delete folder "' + name + '"? Its media will move to DIVERS.')) return;
+      fetch('/posts/folders/' + folderId, {
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': csrf(), 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.error) { alert(data.error); return; }
+          const divers = diversFolderId();
+          const count = parseInt(tab.querySelector('[data-folder-count]') && tab.querySelector('[data-folder-count]').textContent) || 0;
+          document.querySelectorAll('[data-media-card][data-folder-id="' + folderId + '"]').forEach((c) => {
+            c.dataset.folderId = divers;
+          });
+          bumpCount(divers, count);
+          window.__folders = getFolders().filter((f) => f.id !== folderId);
+          tab.remove();
+          if (folderSelect) { const opt = folderSelect.querySelector('option[value="' + folderId + '"]'); if (opt) opt.remove(); }
+          activateTab(divers);
+        })
+        .catch(() => {});
+      return;
+    }
+    const tab = e.target.closest('[data-folder-tab]');
+    if (tab) activateTab(tab.dataset.folderId);
+  });
+
+  // ── new folder form ──────────────────────────────────────────────────────
+
+  const newFolderBtn    = document.getElementById('new-folder-btn');
+  const newFolderForm   = document.getElementById('new-folder-form');
+  const newFolderInput  = document.getElementById('new-folder-input');
+  const newFolderSubmit = document.getElementById('new-folder-submit');
+  const newFolderCancel = document.getElementById('new-folder-cancel');
+
+  if (newFolderBtn) {
+    newFolderBtn.addEventListener('click', () => {
+      newFolderBtn.classList.add('hidden');
+      newFolderForm.classList.remove('hidden');
+      newFolderInput.value = '';
+      newFolderInput.focus();
+    });
+    newFolderCancel.addEventListener('click', () => {
+      newFolderForm.classList.add('hidden');
+      newFolderBtn.classList.remove('hidden');
+    });
+    newFolderInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') newFolderSubmit.click();
+      if (e.key === 'Escape') newFolderCancel.click();
+    });
+    newFolderSubmit.addEventListener('click', () => {
+      const name = newFolderInput.value.trim();
+      if (!name) return;
+      newFolderSubmit.disabled = true;
+      fetch('/posts/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ name })
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          newFolderSubmit.disabled = false;
+          if (data.error) { newFolderInput.classList.add('border-red-400'); newFolderInput.title = data.error; return; }
+          const folder = data.folder;
+          window.__folders = [...getFolders(), folder];
+          const tab = document.createElement('button');
+          tab.type = 'button';
+          tab.className = 'group flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-1.5 text-xs font-medium text-black/60 transition-colors hover:border-black/25 hover:text-black';
+          tab.dataset.folderTab  = '';
+          tab.dataset.folderId   = folder.id;
+          tab.dataset.folderType = 'custom';
+          tab.dataset.folderName = encodeURIComponent(folder.name);
+          tab.innerHTML = '🗂 ' + folder.name +
+            ' <span class="rounded-full bg-black/8 px-1.5 py-0 leading-4" data-folder-count>0</span>' +
+            ' <span class="ml-0.5 hidden text-black/30 hover:text-red-500 group-hover:inline" data-delete-folder title="Delete folder">&times;</span>';
+          newFolderBtn.insertAdjacentElement('beforebegin', tab);
+          if (folderSelect) { const opt = document.createElement('option'); opt.value = folder.id; opt.textContent = folder.name; folderSelect.appendChild(opt); }
+          newFolderForm.classList.add('hidden');
+          newFolderBtn.classList.remove('hidden');
+          newFolderInput.classList.remove('border-red-400');
+          activateTab(folder.id);
+        })
+        .catch(() => { newFolderSubmit.disabled = false; });
+    });
+  }
+
+  // ── move buttons on media cards ──────────────────────────────────────────
+
+  mediaGrid && mediaGrid.addEventListener('click', (e) => {
+    const moveBtn = e.target.closest('[data-move-btn]');
+    if (!moveBtn) return;
+    e.stopPropagation();
+    const wrap  = moveBtn.closest('[data-move-wrap]');
+    const card  = moveBtn.closest('[data-media-card]');
+    const menu  = wrap.querySelector('[data-move-menu]');
+    const mediaId = card.dataset.id;
+    const currentFolderId = card.dataset.folderId;
+    document.querySelectorAll('[data-move-menu]').forEach((m) => { if (m !== menu) m.classList.add('hidden'); });
+    if (menu.classList.contains('hidden')) {
+      buildMoveMenu(menu, currentFolderId, mediaId);
+      menu.classList.remove('hidden');
+    } else {
+      menu.classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-move-wrap]')) {
+      document.querySelectorAll('[data-move-menu]').forEach((m) => m.classList.add('hidden'));
+    }
+  });
+
+  // ── init ─────────────────────────────────────────────────────────────────
+
+  const saved = sessionStorage.getItem(STORAGE_KEY);
+  const valid = getFolders().find((f) => f.id === saved);
+  activateTab(valid ? saved : diversFolderId());
+})();

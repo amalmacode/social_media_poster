@@ -2,6 +2,7 @@ const path = require('path');
 const { unlink, stat, copyFile } = require('fs').promises;
 const Joi = require('joi');
 const mediaModel = require('../models/mediaModel');
+const mediaFolderModel = require('../models/mediaFolderModel');
 const accountModel = require('../models/accountModel');
 const brandAccountModel = require('../models/brandAccountModel');
 const postModel = require('../models/postModel');
@@ -33,14 +34,15 @@ const postSchema = Joi.object({
 async function newPost(req, res, next) {
   try {
     const [media, accounts, brandAccounts] = await Promise.all([
-      mediaModel.listByUser(req.user.id),
+      mediaModel.listByUser(req.user.id, 200),
       accountModel.listByUser(req.user.id),
       brandAccountModel.listByUser(req.user.id)
     ]);
+    const folders = await mediaFolderModel.ensureAndList(req.user.id, brandAccounts);
     const pinterestBoards = accounts
       .filter((a) => a.platform === 'pinterest')
       .flatMap((a) => (a.metadata_json?.boards || []).map((b) => ({ id: b.id, name: b.name })));
-    res.render('posts/new', { title: 'Create post', media, accounts, brandAccounts, pinterestBoards });
+    res.render('posts/new', { title: 'Create post', media, accounts, brandAccounts, pinterestBoards, folders });
   } catch (error) {
     next(error);
   }
@@ -54,7 +56,8 @@ async function uploadMedia(req, res, next) {
       if (isXhr) return res.status(400).json({ error: 'Please choose at least one image or video.' });
       throw new AppError('Please choose at least one image or video.', 400);
     }
-    const results = await Promise.all(files.map((f) => mediaService.createFromUpload(req.user.id, f)));
+    const folderId = req.body.folderId || null;
+    const results = await Promise.all(files.map((f) => mediaService.createFromUpload(req.user.id, f, folderId)));
     const errors = results.flatMap((m) => m.validation_errors);
     const ok = results.length - results.filter((m) => m.validation_errors.length).length;
     if (isXhr) return res.json({ ok, errors });
@@ -330,4 +333,42 @@ async function cropImageMedia(req, res, next) {
   }
 }
 
-module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, history, scheduled, reschedulePost, cropMedia, cropImageMedia };
+async function createFolder(req, res, next) {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Folder name is required.' });
+    if (name.toUpperCase() === 'DIVERS') return res.status(400).json({ error: '"DIVERS" is a reserved name.' });
+    const folder = await mediaFolderModel.createCustom(req.user.id, name);
+    res.json({ folder: { ...folder, media_count: 0 } });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A folder with that name already exists.' });
+    next(err);
+  }
+}
+
+async function deleteFolder(req, res, next) {
+  try {
+    const deleted = await mediaFolderModel.removeCustom(req.params.id, req.user.id);
+    if (!deleted) return res.status(404).json({ error: 'Folder not found or cannot be deleted.' });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function moveMediaToFolder(req, res, next) {
+  try {
+    const folderId = req.body.folderId || null;
+    if (folderId) {
+      const folder = await mediaFolderModel.findForUser(folderId, req.user.id);
+      if (!folder) return res.status(404).json({ error: 'Folder not found.' });
+    }
+    const item = await mediaModel.moveToFolder(req.params.id, req.user.id, folderId);
+    if (!item) return res.status(404).json({ error: 'Media not found.' });
+    res.json({ ok: true, folderId: item.folder_id });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, history, scheduled, reschedulePost, cropMedia, cropImageMedia, createFolder, deleteFolder, moveMediaToFolder };

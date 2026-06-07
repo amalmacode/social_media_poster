@@ -19,7 +19,11 @@ router.post('/media', ensureAuthenticated, (req, res, next) => {
 }, postController.uploadMedia);
 router.post('/media/:id/crop', ensureAuthenticated, postController.cropMedia);
 router.post('/media/:id/crop-image', ensureAuthenticated, postController.cropImageMedia);
+router.patch('/media/:id/folder', ensureAuthenticated, postController.moveMediaToFolder);
 router.delete('/media/:id', ensureAuthenticated, postController.deleteMedia);
+
+router.post('/folders', ensureAuthenticated, postController.createFolder);
+router.delete('/folders/:id', ensureAuthenticated, postController.deleteFolder);
 router.post('/', ensureAuthenticated, postController.createPost);
 router.post('/:id/reschedule', ensureAuthenticated, postController.reschedulePost);
 router.delete('/:id', ensureAuthenticated, postController.deletePost);

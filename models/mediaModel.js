@@ -3,8 +3,8 @@ const { query } = require('../config/db');
 async function create(media) {
   const { rows } = await query(
     `INSERT INTO media
-     (user_id, file_path, original_name, mime_type, size_bytes, duration, width, height, thumbnail_path, processing_status, validation_errors)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+     (user_id, file_path, original_name, mime_type, size_bytes, duration, width, height, thumbnail_path, processing_status, validation_errors, folder_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
     [
       media.userId,
       media.filePath,
@@ -16,15 +16,24 @@ async function create(media) {
       media.height,
       media.thumbnailPath,
       media.processingStatus || 'success',
-      media.validationErrors || []
+      media.validationErrors || [],
+      media.folderId || null
     ]
   );
   return rows[0];
 }
 
-async function listByUser(userId, limit = 12) {
+async function listByUser(userId, limit = 200) {
   const { rows } = await query('SELECT * FROM media WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2', [userId, limit]);
   return rows;
+}
+
+async function moveToFolder(id, userId, folderId) {
+  const { rows } = await query(
+    `UPDATE media SET folder_id = $3 WHERE id = $1 AND user_id = $2 RETURNING *`,
+    [id, userId, folderId || null]
+  );
+  return rows[0] || null;
 }
 
 async function findForUser(id, userId) {
@@ -64,4 +73,4 @@ async function remove(id, userId) {
   await query('DELETE FROM media WHERE id = $1 AND user_id = $2', [id, userId]);
 }
 
-module.exports = { create, listByUser, findForUser, hasLinkedPosts, update, updateStatus, remove };
+module.exports = { create, listByUser, findForUser, hasLinkedPosts, update, updateStatus, remove, moveToFolder };

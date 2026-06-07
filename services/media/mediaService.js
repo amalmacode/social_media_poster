@@ -2,7 +2,7 @@ const mediaModel = require('../../models/mediaModel');
 const { processMedia } = require('./mediaProcessor');
 const { relativeUploadPath } = require('../storage/localStorageService');
 
-async function createFromUpload(userId, file) {
+async function createFromUpload(userId, file, folderId = null) {
   const processed = await processMedia(file);
 
   // Use converted file if WebP was auto-converted to JPEG
@@ -23,7 +23,8 @@ async function createFromUpload(userId, file) {
     height: processed.height,
     thumbnailPath: processed.thumbnailPath ? relativeUploadPath(processed.thumbnailPath) : null,
     processingStatus: processed.validationErrors.length ? 'failed' : 'success',
-    validationErrors: processed.validationErrors
+    validationErrors: processed.validationErrors,
+    folderId
   });
 }
 
