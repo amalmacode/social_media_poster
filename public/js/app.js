@@ -706,7 +706,7 @@ if (uploadForm) {
   const dropzone = uploadForm.querySelector('[data-dropzone]');
   const input = uploadForm.querySelector('input[type="file"]');
   const fileName = uploadForm.querySelector('[data-file-name]');
-  const btn = uploadForm.querySelector('button[type="submit"]');
+  const btn = uploadForm.querySelector('button[type="submit"], button:not([type])');
 
   const MAX_FILE_BYTES = 250 * 1024 * 1024;  // 250 MB — matches server limit
   const MAX_TOTAL_BYTES = 500 * 1024 * 1024; // 500 MB total batch limit
