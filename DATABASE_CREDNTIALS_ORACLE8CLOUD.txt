@@ -1,0 +1,30 @@
+ESSENTIAL OF COMMANDS 
+
+
+
+# MOVE To PSQL MODE TO EXCUSTE SQL
+sudo -u postgres psql
+
+
+# CREATE USER - database 
+
+CREATE USER socialposter WITH PASSWORD 'social2026PoStER';
+CREATE DATABASE socialposter OWNER socialposter;
+GRANT ALL PRIVILEGES ON DATABASE socialposter TO socialposter;
+\q
+  
+
+### Create Folder in Server : COPY GitHub Project 
+
+cd /var/www
+sudo mkdir social-media-poster
+sudo chown ubuntu:ubuntu social-media-poster
+git clone https://github.com/amalmacode/social_media_poster social-media-poster
+cd social-media-poster
+
+
+
+#### PULL form Github 
+
+cd /var/www/social-media-poster && git pull origin main && pm2 restart socialPoster
+

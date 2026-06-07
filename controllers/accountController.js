@@ -344,42 +344,63 @@ function connectPinterestToken(req, res) {
 }
 
 async function pinterestTokenConnect(req, res, next) {
-  // Strip all whitespace, newlines, quotes — paste artifacts
-  const accessToken = (req.body.accessToken || '').replace(/[\s"'`]/g, '');
+  const axios = require('axios');
+  const accessToken = (req.body.accessToken || '')
+    .replace(/[\s\u00a0\u200b\u200c\u200d\u2060\ufeff]/g, '');
   if (!accessToken) {
     req.flash('error', 'Paste your Pinterest access token.');
     return res.redirect('/accounts/pinterest/connect-token');
   }
 
-  console.log(`[Pinterest token] Attempting connection, token length: ${accessToken.length}, prefix: ${accessToken.slice(0, 8)}...`);
+  const hexDump = Array.from(accessToken.slice(0, 16)).map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join(' ');
+  console.log(`[Pinterest token] len=${accessToken.length} prefix="${accessToken.slice(0, 12)}" suffix="${accessToken.slice(-6)}" hex="${hexDump}"`);
 
-  let profile, boards;
+  // Direct raw call — bypasses service layer, shows exactly what Pinterest returns
+  let profileRes;
   try {
-    profile = await pinterestService.getProfile(accessToken);
-  } catch (err) {
-    const status = err.response?.status;
-    const data = err.response?.data;
-    console.error('[Pinterest token] getProfile failed:', JSON.stringify({ status, data }, null, 2));
-
-    let hint = '';
-    if (status === 401) hint = ' — Token is invalid or expired. Regenerate it in the Pinterest developer portal.';
-    else if (status === 403) hint = ' — Token lacks user_accounts:read scope. Regenerate and tick that scope.';
-
-    const msg = data?.message || data?.error || err.message;
-    req.flash('error', `Pinterest API error (${status || 'network'}): ${msg}${hint}`);
+    profileRes = await axios.get('https://api.pinterest.com/v5/user_account', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json'
+      },
+      validateStatus: null  // never throw on HTTP errors — handle manually
+    });
+  } catch (netErr) {
+    console.error('[Pinterest token] Network error:', netErr.message);
+    req.flash('error', `Network error reaching Pinterest: ${netErr.message}`);
     return res.redirect('/accounts/pinterest/connect-token');
   }
 
-  try {
-    boards = await pinterestService.getBoards(accessToken);
-  } catch (err) {
-    console.warn('[Pinterest token] getBoards failed (continuing without boards):', err.message);
-    boards = [];
+  console.log(`[Pinterest token] user_account → HTTP ${profileRes.status}`, JSON.stringify(profileRes.data, null, 2));
+
+  if (profileRes.status !== 200) {
+    const raw = JSON.stringify(profileRes.data);
+    const hint = profileRes.status === 401
+      ? 'Your Pinterest app is likely still in "Trial access pending" or "In Review" state — Pinterest blocks ALL API calls (including sandbox) until trial access is granted. Check your app status at developers.pinterest.com and wait for approval, or contact Pinterest developer support to expedite.'
+      : profileRes.status === 403
+        ? 'Token is valid but missing scopes — regenerate and tick user_accounts:read, boards:read, pins:write.'
+        : '';
+    req.flash('error', `Pinterest HTTP ${profileRes.status}: ${raw}${hint ? ' — ' + hint : ''}`);
+    return res.redirect('/accounts/pinterest/connect-token');
   }
 
+  const profile = profileRes.data;
   if (!profile?.username) {
-    req.flash('error', 'Pinterest returned no username — check the token scopes include user_accounts:read.');
+    req.flash('error', `Pinterest returned no username. Full response: ${JSON.stringify(profile)}`);
     return res.redirect('/accounts/pinterest/connect-token');
+  }
+
+  let boards = [];
+  try {
+    const boardsRes = await axios.get('https://api.pinterest.com/v5/boards', {
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' },
+      params: { page_size: 100 },
+      validateStatus: null
+    });
+    console.log(`[Pinterest token] boards → HTTP ${boardsRes.status}`, JSON.stringify(boardsRes.data, null, 2));
+    if (boardsRes.status === 200) boards = boardsRes.data.items || [];
+  } catch (err) {
+    console.warn('[Pinterest token] boards request failed:', err.message);
   }
 
   await accountModel.upsert({
@@ -390,9 +411,9 @@ async function pinterestTokenConnect(req, res, next) {
     accessToken,
     refreshToken: null,
     expiresAt: null,
-    metadata: { boards: (boards || []).map((b) => ({ id: b.id, name: b.name })), profile, sandbox: true }
+    metadata: { boards: boards.map((b) => ({ id: b.id, name: b.name })), profile, sandbox: true }
   });
-  req.flash('success', `Pinterest connected: @${profile.username} — ${(boards || []).length} board(s) loaded.`);
+  req.flash('success', `Pinterest connected: @${profile.username} — ${boards.length} board(s) loaded.`);
   res.redirect('/accounts');
 }
 

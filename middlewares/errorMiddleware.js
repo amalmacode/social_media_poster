@@ -16,7 +16,9 @@ function errorHandler(error, req, res, next) {
   });
   const status = error.statusCode || 500;
   if (req.accepts('html')) {
-    req.flash('error', status === 500 ? 'Something went wrong. Please try again.' : error.message);
+    if (typeof req.flash === 'function') {
+      req.flash('error', status === 500 ? 'Something went wrong. Please try again.' : error.message);
+    }
     return res.status(status).render('errors/error', { title: 'Error', error, status });
   }
   return res.status(status).json({ error: error.message });

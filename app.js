@@ -94,6 +94,7 @@ app.use((req, res, next) => {
     success: req.flash('success'),
     error: req.flash('error')
   };
+  res.locals.pinterestEnabled = env.pinterest.enabled;
   next();
 });
 
