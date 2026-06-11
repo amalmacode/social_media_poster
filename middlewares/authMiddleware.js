@@ -19,6 +19,9 @@ function ensureAuthenticated(req, res, next) {
       }
       req.login(reviewUser, (err) => {
         if (err) return next(err);
+        // res.locals.currentUser was already set to null earlier in the middleware
+        // chain (before req.user existed) — refresh it so the nav renders on first load.
+        res.locals.currentUser = reviewUser;
         return next();
       });
     })
