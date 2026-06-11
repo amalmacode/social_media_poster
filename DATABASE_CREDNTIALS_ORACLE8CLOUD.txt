@@ -28,3 +28,16 @@ cd social-media-poster
 
 cd /var/www/social-media-poster && git pull origin main && pm2 restart socialPoster
 
+
+##### Make any new migrations to DATABASe 
+# be sure that your are in /var/www/social-media-poster
+
+node -e "
+require('dotenv').config();
+const { query } = require('./config/db');
+const fs = require('fs');
+const sql = fs.readFileSync('./database/migrations/NEW_FILE_To_MIGRATE.sql', 'utf8');
+query(sql)
+  .then(() => { console.log('Migration OK'); process.exit(0); })
+  .catch((e) => { console.error('Migration FAILED:', e.message); process.exit(1); });
+"
