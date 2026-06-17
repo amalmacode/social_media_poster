@@ -39,9 +39,21 @@ class YouTubeService extends BasePlatformService {
       client_id: env.google.clientId,
       client_secret: env.google.clientSecret
     });
-    const res = await this.client.post(GOOGLE_TOKEN_URL, body.toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
+    let res;
+    try {
+      res = await this.client.post(GOOGLE_TOKEN_URL, body.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+    } catch (err) {
+      const data = err.response?.data;
+      if (data?.error === 'invalid_grant') {
+        this.permanent(
+          'YouTube token expired or revoked. Please disconnect and reconnect your YouTube account. ' +
+          '(If your Google app is in Testing mode, tokens expire every 7 days — publish the app in Google Cloud Console to fix this permanently.)'
+        );
+      }
+      throw err;
+    }
     return accountModel.updateTokens(account.id, {
       accessToken: res.data.access_token,
       expiresAt: new Date(Date.now() + (res.data.expires_in || 3600) * 1000)
