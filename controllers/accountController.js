@@ -358,7 +358,8 @@ async function pinterestTokenConnect(req, res, next) {
   // Direct raw call — bypasses service layer, shows exactly what Pinterest returns
   let profileRes;
   try {
-    profileRes = await axios.get('https://api.pinterest.com/v5/user_account', {
+    const pinterestApiBase = env.pinterest.sandbox ? 'https://sandbox.api.pinterest.com/v5' : 'https://api.pinterest.com/v5';
+    profileRes = await axios.get(`${pinterestApiBase}/user_account`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json'
@@ -376,9 +377,9 @@ async function pinterestTokenConnect(req, res, next) {
   if (profileRes.status !== 200) {
     const raw = JSON.stringify(profileRes.data);
     const hint = profileRes.status === 401
-      ? 'Your Pinterest app is likely still in "Trial access pending" or "In Review" state — Pinterest blocks ALL API calls (including sandbox) until trial access is granted. Check your app status at developers.pinterest.com and wait for approval, or contact Pinterest developer support to expedite.'
+      ? 'Token rejected — make sure you copied the full token and selected the correct environment (Sandbox token requires PINTEREST_SANDBOX=true).'
       : profileRes.status === 403
-        ? 'Token is valid but missing scopes — regenerate and tick user_accounts:read, boards:read, pins:write.'
+        ? 'Token is valid but missing scopes — regenerate with pins:write, boards:read, user_accounts:read.'
         : '';
     req.flash('error', `Pinterest HTTP ${profileRes.status}: ${raw}${hint ? ' — ' + hint : ''}`);
     return res.redirect('/accounts/pinterest/connect-token');

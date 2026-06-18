@@ -5,7 +5,9 @@ const accountModel = require('../../models/accountModel');
 const { env } = require('../../config/env');
 const { toSignedPublicUrl } = require('../storage/localStorageService');
 
-const API = 'https://api.pinterest.com/v5';
+const API = env.pinterest.sandbox
+  ? 'https://sandbox.api.pinterest.com/v5'
+  : 'https://api.pinterest.com/v5';
 const SCOPES = 'boards:read,pins:write,user_accounts:read';
 
 class PinterestService extends BasePlatformService {
@@ -105,9 +107,16 @@ class PinterestService extends BasePlatformService {
       ...(payload.destinationUrl && { link: payload.destinationUrl }),
       media_source: { source_type: 'image_url', url }
     };
-    const res = await this.client.post(`${API}/pins`, body, {
-      headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json' }
-    });
+    console.log('[Pinterest] createImagePin → board_id:', payload.boardId, '| url:', url);
+    let res;
+    try {
+      res = await this.client.post(`${API}/pins`, body, {
+        headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json' }
+      });
+    } catch (err) {
+      console.error('[Pinterest] createImagePin error →', JSON.stringify(err.response?.data));
+      throw err;
+    }
     return { platform: 'pinterest', remotePostId: res.data.id, raw: res.data };
   }
 

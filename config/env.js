@@ -46,7 +46,8 @@ const env = {
   pinterest: {
     clientId: process.env.PINTEREST_CLIENT_ID,
     clientSecret: process.env.PINTEREST_CLIENT_SECRET,
-    enabled: process.env.PINTEREST_ENABLED === 'true'
+    enabled: process.env.PINTEREST_ENABLED === 'true',
+    sandbox: process.env.PINTEREST_SANDBOX === 'true'
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
