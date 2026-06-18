@@ -361,7 +361,8 @@ async function pinterestTokenConnect(req, res, next) {
     profileRes = await axios.get('https://api.pinterest.com/v5/user_account', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'App-Id': env.pinterest.clientId || ''
       },
       validateStatus: null  // never throw on HTTP errors — handle manually
     });
