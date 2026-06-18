@@ -121,6 +121,17 @@ async function dashboardCounts(userId) {
   return rows[0];
 }
 
+async function update(id, userId, { caption, scheduledFor, platformPayloads }) {
+  const { rows } = await query(
+    `UPDATE posts
+     SET caption = $3, scheduled_for = $4, platform_payloads = $5
+     WHERE id = $1 AND user_id = $2 AND status = 'pending'
+     RETURNING *`,
+    [id, userId, caption || '', scheduledFor || null, platformPayloads || {}]
+  );
+  return rows[0] || null;
+}
+
 async function reschedule(id, userId, scheduledFor) {
   const { rows } = await query(
     `UPDATE posts SET scheduled_for = $3 WHERE id = $1 AND user_id = $2 AND status = 'pending' RETURNING *`,
@@ -134,4 +145,4 @@ async function remove(id, userId) {
   return rows[0] || null;
 }
 
-module.exports = { create, listByUser, findWithTargets, updatePostStatus, updateTargetStatus, dashboardCounts, reschedule, remove };
+module.exports = { create, listByUser, findWithTargets, updatePostStatus, updateTargetStatus, dashboardCounts, update, reschedule, remove };

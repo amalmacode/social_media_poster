@@ -25,6 +25,8 @@ router.delete('/media/:id', ensureAuthenticated, postController.deleteMedia);
 router.post('/folders', ensureAuthenticated, postController.createFolder);
 router.delete('/folders/:id', ensureAuthenticated, postController.deleteFolder);
 router.post('/', ensureAuthenticated, postController.createPost);
+router.get('/:id/edit', ensureAuthenticated, postController.editPost);
+router.patch('/:id', ensureAuthenticated, postController.updatePost);
 router.post('/:id/reschedule', ensureAuthenticated, postController.reschedulePost);
 router.delete('/:id', ensureAuthenticated, postController.deletePost);
 

@@ -1,0 +1,142 @@
+<%
+  const pp = post.platform_payloads || {};
+  const yt = pp.youtube || {};
+  const tk = pp.tiktok || {};
+  const pt = pp.pinterest || {};
+
+  const scheduledVal = post.scheduled_for
+    ? (function() {
+        const d = new Date(post.scheduled_for);
+        const pad = (n) => String(n).padStart(2, '0');
+        return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) +
+               'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      })()
+    : '';
+%>
+<div class="mx-auto max-w-2xl space-y-5">
+  <div class="flex items-center gap-3">
+    <a href="/posts/scheduled" class="text-sm text-black/50 hover:text-black">← Scheduled posts</a>
+  </div>
+
+  <form method="post" action="/posts/<%= post.id %>?_method=PATCH" class="space-y-5 rounded-lg border border-black/10 bg-white p-6 shadow-sm">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div>
+      <h1 class="text-xl font-semibold">Edit post</h1>
+      <p class="mt-0.5 text-sm text-black/50">Only pending posts can be updated. Media cannot be changed here.</p>
+    </div>
+
+    <!-- Targets summary (read-only) -->
+    <div>
+      <p class="text-sm font-medium text-black/70">Publishing to</p>
+      <div class="mt-1.5 flex flex-wrap gap-1.5">
+        <%
+          const platformColor = {
+            instagram:'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
+            facebook:'bg-blue-600 text-white', pinterest:'bg-[#E60023] text-white',
+            youtube:'bg-[#FF0000] text-white', tiktok:'bg-[#010101] text-white'
+          };
+        %>
+        <% post.targets.forEach(function(t) { %>
+          <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold <%= platformColor[t.platform] || 'bg-black/10 text-black/70' %>">
+            <%= t.platform %> <span class="opacity-70">@<%= t.username %></span>
+          </span>
+        <% }) %>
+      </div>
+    </div>
+
+    <!-- Caption -->
+    <div>
+      <label class="block text-sm font-medium">Caption</label>
+      <textarea name="caption" rows="6" maxlength="5000"
+        class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm"><%= post.caption || '' %></textarea>
+      <p class="mt-1 text-xs text-black/40">Instagram limit: 2,200 chars</p>
+    </div>
+
+    <!-- YouTube fields -->
+    <% if (platforms.includes('youtube')) { %>
+    <div class="rounded-md border border-black/10 p-4 space-y-3">
+      <p class="text-sm font-semibold text-[#FF0000]">YouTube</p>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Title</label>
+        <input name="youtubeTitle" maxlength="100" value="<%= yt.title || '' %>"
+          class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Description</label>
+        <textarea name="youtubeDescription" rows="3" maxlength="5000"
+          class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm"><%= yt.description || '' %></textarea>
+      </div>
+    </div>
+    <% } %>
+
+    <!-- TikTok fields -->
+    <% if (platforms.includes('tiktok')) { %>
+    <div class="rounded-md border border-black/10 p-4 space-y-3">
+      <p class="text-sm font-semibold">TikTok</p>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Title / caption</label>
+        <input name="tiktokTitle" maxlength="2200" value="<%= tk.title || '' %>"
+          class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm" placeholder="Defaults to main caption">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Privacy</label>
+        <select name="tiktokPrivacy" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm">
+          <% [['PUBLIC_TO_EVERYONE','Public'],['FOLLOWER_OF_CREATOR','Followers only'],['MUTUAL_FOLLOW_FRIENDS','Friends'],['SELF_ONLY','Only me (testing)']].forEach(function(opt) { %>
+            <option value="<%= opt[0] %>" <%= (tk.privacy || 'PUBLIC_TO_EVERYONE') === opt[0] ? 'selected' : '' %>><%= opt[1] %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+    <% } %>
+
+    <!-- Pinterest fields -->
+    <% if (platforms.includes('pinterest')) { %>
+    <div class="rounded-md border border-black/10 p-4 space-y-3">
+      <p class="text-sm font-semibold text-[#E60023]">Pinterest</p>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Board <span class="text-red-500">*</span></label>
+        <% if (pinterestBoards.length) { %>
+          <select name="pinterestBoardId" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm">
+            <option value="">— select a board —</option>
+            <% pinterestBoards.forEach(function(board) { %>
+              <option value="<%= board.id %>" <%= pt.boardId === board.id ? 'selected' : '' %>><%= board.name %></option>
+            <% }) %>
+          </select>
+        <% } else { %>
+          <p class="mt-1 text-xs text-black/50">No boards loaded — <a href="/accounts" class="underline">reconnect Pinterest</a>.</p>
+          <input type="hidden" name="pinterestBoardId" value="<%= pt.boardId || '' %>">
+        <% } %>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Pin title</label>
+        <input name="pinterestTitle" maxlength="100" value="<%= pt.title || '' %>"
+          class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Description</label>
+        <textarea name="pinterestDescription" rows="3" maxlength="500"
+          class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm"><%= pt.description || '' %></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Destination link</label>
+        <input name="pinterestDestinationUrl" value="<%= pt.destinationUrl || '' %>"
+          class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm" placeholder="https://...">
+      </div>
+    </div>
+    <% } %>
+
+    <!-- Schedule -->
+    <div class="rounded-md border border-black/10 p-4">
+      <p class="text-sm font-medium">Scheduled date & time</p>
+      <input type="datetime-local" name="scheduledFor" value="<%= scheduledVal %>"
+        class="mt-2 rounded-md border border-black/15 px-3 py-2 text-sm">
+      <p class="mt-1 text-xs text-black/40">Leave unchanged to keep the current schedule.</p>
+    </div>
+
+    <div class="flex items-center gap-3 pt-1">
+      <button type="submit" class="rounded-md bg-mint px-5 py-2.5 text-sm font-semibold text-white">Save changes</button>
+      <a href="/scheduled" class="rounded-md border border-black/15 px-4 py-2.5 text-sm font-medium text-black/60 hover:bg-black/5">Cancel</a>
+    </div>
+  </form>
+</div>

@@ -371,4 +371,57 @@ async function moveMediaToFolder(req, res, next) {
   }
 }
 
-module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, history, scheduled, reschedulePost, cropMedia, cropImageMedia, createFolder, deleteFolder, moveMediaToFolder };
+async function editPost(req, res, next) {
+  try {
+    const post = await postModel.findWithTargets(req.params.id);
+    if (!post || post.user_id !== req.user.id) return res.status(404).render('errors/404');
+    if (post.status !== 'pending') {
+      req.flash('error', 'Only pending posts can be edited.');
+      return res.redirect('/scheduled');
+    }
+    const platforms = [...new Set(post.targets.map((t) => t.platform))];
+    let pinterestBoards = [];
+    if (platforms.includes('pinterest')) {
+      const accounts = await accountModel.listByUser(req.user.id);
+      const pa = accounts.find((a) => a.platform === 'pinterest');
+      pinterestBoards = pa?.metadata_json?.boards || [];
+    }
+    res.render('posts/edit', { title: 'Edit post', post, platforms, pinterestBoards });
+  } catch (err) { next(err); }
+}
+
+async function updatePost(req, res, next) {
+  try {
+    const { caption, scheduledFor } = req.body;
+    const payload = req.body;
+    const platformPayloads = {
+      ...(payload.youtubeTitle !== undefined || payload.youtubeDescription !== undefined ? {
+        youtube: { title: payload.youtubeTitle || '', description: payload.youtubeDescription || '' }
+      } : {}),
+      ...(payload.tiktokTitle !== undefined || payload.tiktokPrivacy !== undefined ? {
+        tiktok: { title: payload.tiktokTitle || '', privacy: payload.tiktokPrivacy || 'PUBLIC_TO_EVERYONE' }
+      } : {}),
+      ...(payload.pinterestBoardId !== undefined || payload.pinterestTitle !== undefined ? {
+        pinterest: {
+          boardId: payload.pinterestBoardId || '',
+          title: payload.pinterestTitle || '',
+          description: payload.pinterestDescription || '',
+          destinationUrl: payload.pinterestDestinationUrl || ''
+        }
+      } : {})
+    };
+    const updated = await postModel.update(req.params.id, req.user.id, {
+      caption: caption || '',
+      scheduledFor: scheduledFor || null,
+      platformPayloads
+    });
+    if (!updated) {
+      req.flash('error', 'Post not found or cannot be edited.');
+      return res.redirect('/scheduled');
+    }
+    req.flash('success', 'Post updated.');
+    res.redirect('/scheduled');
+  } catch (err) { next(err); }
+}
+
+module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, history, scheduled, reschedulePost, cropMedia, cropImageMedia, createFolder, deleteFolder, moveMediaToFolder, editPost, updatePost };

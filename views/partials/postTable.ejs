@@ -92,10 +92,16 @@
             <% } %>
           </td>
           <td class="px-3 py-3 text-right">
-            <form method="post" action="/posts/<%= post.id %>?_method=DELETE" data-confirm="Remove this post?">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <button type="submit" class="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">Remove</button>
-            </form>
+            <div class="flex items-center justify-end gap-1">
+              <% if (post.status === 'pending') { %>
+                <a href="/posts/<%= post.id %>/edit"
+                   class="rounded px-2 py-1 text-xs font-medium text-black/50 hover:bg-black/5">Edit</a>
+              <% } %>
+              <form method="post" action="/posts/<%= post.id %>?_method=DELETE" data-confirm="Remove this post?">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">Remove</button>
+              </form>
+            </div>
           </td>
         </tr>
       <% }) %>
