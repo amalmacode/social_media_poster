@@ -29,14 +29,34 @@ class PinterestService extends BasePlatformService {
     if (!account.expires_at || new Date(account.expires_at).getTime() - Date.now() > 1000 * 60 * 60 * 24 * 7) return account;
     const creds = Buffer.from(`${env.pinterest.clientId}:${env.pinterest.clientSecret}`).toString('base64');
     const body = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: account.refresh_token, scope: SCOPES });
-    const res = await this.client.post(`${API}/oauth/token`, body.toString(), {
-      headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
+    let res;
+    try {
+      res = await this.client.post(`${API}/oauth/token`, body.toString(), {
+        headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+    } catch (err) {
+      const data = err.response?.data;
+      if (err.response?.status === 401 || data?.error === 'invalid_grant') {
+        this.permanent('Pinterest token expired or revoked. Please disconnect and reconnect your Pinterest account.');
+      }
+      throw err;
+    }
     return accountModel.updateTokens(account.id, {
       accessToken: res.data.access_token,
       refreshToken: res.data.refresh_token || account.refresh_token,
       expiresAt: res.data.expires_in ? new Date(Date.now() + res.data.expires_in * 1000) : null
     });
+  }
+
+  normalizeError(error) {
+    const status = error.response?.status;
+    const data = error.response?.data;
+    const retryable = !status || status === 429 || status >= 500;
+    const message = data?.message || data?.error?.message || error.message || 'Pinterest API error';
+    if (status === 401) {
+      return { retryable: false, message: 'Pinterest authentication failed — disconnect and reconnect your Pinterest account.', response: data };
+    }
+    return { retryable, message, response: data || null };
   }
 
   async getProfile(accessToken) {
