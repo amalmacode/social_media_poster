@@ -5,9 +5,7 @@ const accountModel = require('../../models/accountModel');
 const { env } = require('../../config/env');
 const { toSignedPublicUrl } = require('../storage/localStorageService');
 
-const API = env.pinterest.sandbox
-  ? 'https://sandbox.api.pinterest.com/v5'
-  : 'https://api.pinterest.com/v5';
+const API = 'https://api.pinterest.com/v5';
 const SCOPES = 'boards:read,pins:write,user_accounts:read';
 
 class PinterestService extends BasePlatformService {

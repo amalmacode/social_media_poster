@@ -358,8 +358,7 @@ async function pinterestTokenConnect(req, res, next) {
   // Direct raw call — bypasses service layer, shows exactly what Pinterest returns
   let profileRes;
   try {
-    const pinterestApiBase = env.pinterest.sandbox ? 'https://sandbox.api.pinterest.com/v5' : 'https://api.pinterest.com/v5';
-    profileRes = await axios.get(`${pinterestApiBase}/user_account`, {
+    profileRes = await axios.get('https://api.pinterest.com/v5/user_account', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json'
