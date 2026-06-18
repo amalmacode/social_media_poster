@@ -34,6 +34,11 @@ cd /var/www/social-media-poster && git pull origin main && pm2 restart socialPos
 
 ssh -i C:\Users\Amal\.ssh\id_vpsHostingerPoster ubuntu@84.8.221.5
 
+#### CONNECT THE FIRST TIME ON WSL/UBUNTO to SERVER ###
+
+cp /mnt/c/Users/Amal/.ssh/id_vpsHostingerPoster ~/.ssh/
+chmod 600 ~/.ssh/id_vpsHostingerPoster
+ssh -i ~/.ssh/id_vpsHostingerPoster ubuntu@84.8.221.5
 
 
 ##### Make any new migrations to DATABASe 
