@@ -28,7 +28,7 @@ const postSchema = Joi.object({
   pinterestBoardId: Joi.string().allow('').optional(),
   pinterestTitle: Joi.string().allow('').max(100),
   pinterestDescription: Joi.string().allow('').max(500),
-  pinterestDestinationUrl: Joi.string().allow('').uri()
+  pinterestDestinationUrl: Joi.string().allow('', null).uri().optional().default('')
 });
 
 async function newPost(req, res, next) {
