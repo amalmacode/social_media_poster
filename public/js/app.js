@@ -332,6 +332,39 @@ document.querySelectorAll('input[name="accounts"], input[name="brandAccountIds"]
   input.addEventListener('change', updatePlatformFields);
 });
 
+// ── Timezone helpers ─────────────────────────────────────────────────────
+function utcToLocalDatetimeValue(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+         'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+// Populate datetime-local inputs and labels from UTC data attributes
+document.querySelectorAll('input[data-utc]').forEach((input) => {
+  if (input.dataset.utc) input.value = utcToLocalDatetimeValue(input.dataset.utc);
+});
+document.querySelectorAll('[data-utc-label]').forEach((el) => {
+  if (el.dataset.utcLabel) el.textContent = new Date(el.dataset.utcLabel).toLocaleString();
+});
+
+// Attach local timezone offset to scheduledFor before form submit
+document.addEventListener('submit', (e) => {
+  const form = e.target;
+  const input = form.querySelector('input[name="scheduledFor"]');
+  if (!input || !input.value) return;
+  const raw = input.value;
+  if (/[Z+\-]\d/.test(raw)) return;
+  const local = new Date(raw);
+  if (isNaN(local.getTime())) return;
+  const off = -local.getTimezoneOffset();
+  const sign = off >= 0 ? '+' : '-';
+  const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
+  const mm = String(Math.abs(off) % 60).padStart(2, '0');
+  input.value = raw + ':00' + sign + hh + ':' + mm;
+});
+
 document.querySelectorAll('input[name="publishMode"]').forEach((input) => {
   input.addEventListener('change', () => {
     const scheduleInput = document.querySelector('[data-schedule-input]');

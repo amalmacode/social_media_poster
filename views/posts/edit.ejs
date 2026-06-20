@@ -4,14 +4,7 @@
   const tk = pp.tiktok || {};
   const pt = pp.pinterest || {};
 
-  const scheduledVal = post.scheduled_for
-    ? (function() {
-        const d = new Date(post.scheduled_for);
-        const pad = (n) => String(n).padStart(2, '0');
-        return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) +
-               'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-      })()
-    : '';
+  const scheduledIso = post.scheduled_for ? new Date(post.scheduled_for).toISOString() : '';
 %>
 <div class="mx-auto max-w-2xl space-y-5">
   <div class="flex items-center gap-3">
@@ -129,7 +122,7 @@
     <!-- Schedule -->
     <div class="rounded-md border border-black/10 p-4">
       <p class="text-sm font-medium">Scheduled date & time</p>
-      <input type="datetime-local" name="scheduledFor" value="<%= scheduledVal %>"
+      <input type="datetime-local" name="scheduledFor" data-utc="<%= scheduledIso %>"
         class="mt-2 rounded-md border border-black/15 px-3 py-2 text-sm">
       <p class="mt-1 text-xs text-black/40">Leave unchanged to keep the current schedule.</p>
     </div>
