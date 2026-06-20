@@ -28,7 +28,7 @@ const postSchema = Joi.object({
   pinterestBoardId: Joi.string().allow('').optional(),
   pinterestTitle: Joi.string().allow('').max(100),
   pinterestDescription: Joi.string().allow('').max(500),
-  pinterestDestinationUrl: Joi.string().allow('', null).uri().optional().default('')
+  pinterestDestinationUrl: Joi.string().allow('').uri().optional()
 });
 
 async function newPost(req, res, next) {
@@ -81,7 +81,10 @@ async function createPost(req, res, next) {
       brandAccountIds: Array.isArray(raw.brandAccountIds) ? raw.brandAccountIds : [raw.brandAccountIds].filter(Boolean)
     };
     const { value, error } = postSchema.validate(body, { stripUnknown: true });
-    if (error) throw new AppError(error.message, 400);
+    if (error) {
+      req.flash('error', error.details.map((d) => d.message).join(', '));
+      return res.redirect('/posts/new');
+    }
 
     const mediaIds = Array.isArray(value.mediaIds) ? value.mediaIds : [value.mediaIds];
     const mediaItems = await Promise.all(mediaIds.map((id) => mediaModel.findForUser(id, req.user.id)));

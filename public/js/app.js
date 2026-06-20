@@ -186,6 +186,19 @@ if (mediaGrid) {
     if (order.length === 0) {
       e.preventDefault();
       showToast('Please select at least one media item.', 'error');
+      return;
+    }
+
+    const pinterestActive = !document.querySelector('[data-field="pinterest"]')?.classList.contains('hidden');
+    if (pinterestActive) {
+      const urlInput = document.querySelector('input[name="pinterestDestinationUrl"]');
+      const val = (urlInput?.value || '').trim();
+      if (val && !/^https?:\/\/.+/i.test(val)) {
+        e.preventDefault();
+        showToast('Pinterest destination link must be a valid URL starting with https://', 'error');
+        urlInput.focus();
+        return;
+      }
     }
   });
 }
