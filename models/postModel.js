@@ -35,8 +35,38 @@ async function create({ userId, mediaIds, caption, scheduledFor, platformPayload
 
 async function listByUser(userId, options = {}) {
   const limit = options.limit || 20;
-  const statusClause = options.status ? 'AND p.status = $3::post_status' : '';
-  const params = options.status ? [userId, limit, options.status] : [userId, limit];
+  const params = [userId, limit];
+  const clauses = [];
+  let joins = '';
+  let idx = 3;
+
+  if (options.status) {
+    clauses.push(`p.status = $${idx}::post_status`);
+    params.push(options.status);
+    idx++;
+  }
+  if (options.accountId) {
+    clauses.push(`pp.connected_account_id = $${idx}`);
+    params.push(options.accountId);
+    idx++;
+  }
+  if (options.brandId) {
+    joins += ` JOIN brand_account_members bam ON bam.connected_account_id = pp.connected_account_id AND bam.brand_account_id = $${idx}`;
+    params.push(options.brandId);
+    idx++;
+  }
+  if (options.dateFrom) {
+    clauses.push(`COALESCE(p.scheduled_for, p.created_at) >= $${idx}`);
+    params.push(options.dateFrom);
+    idx++;
+  }
+  if (options.dateTo) {
+    clauses.push(`COALESCE(p.scheduled_for, p.created_at) < $${idx}`);
+    params.push(options.dateTo);
+    idx++;
+  }
+
+  const where = clauses.length ? 'AND ' + clauses.join(' AND ') : '';
   const { rows } = await query(
     `SELECT p.*, m.thumbnail_path, m.mime_type,
       COUNT(pp.id)::int AS platform_count,
@@ -57,7 +87,8 @@ async function listByUser(userId, options = {}) {
      JOIN media m ON m.id = p.media_id
      LEFT JOIN post_platforms pp ON pp.post_id = p.id
      LEFT JOIN connected_accounts ca ON ca.id = pp.connected_account_id
-     WHERE p.user_id = $1 ${statusClause}
+     ${joins}
+     WHERE p.user_id = $1 ${where}
      GROUP BY p.id, m.thumbnail_path, m.mime_type
      ORDER BY COALESCE(p.scheduled_for, p.created_at) DESC
      LIMIT $2`,
