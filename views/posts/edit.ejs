@@ -15,8 +15,12 @@
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
     <div>
-      <h1 class="text-xl font-semibold">Edit post</h1>
-      <p class="mt-0.5 text-sm text-black/50">Only pending posts can be updated. Media cannot be changed here.</p>
+      <h1 class="text-xl font-semibold"><%= post.status === 'failed' ? 'Retry post' : 'Edit post' %></h1>
+      <% if (post.status === 'failed') { %>
+        <p class="mt-0.5 text-sm text-red-600">This post failed to publish. Fix any issues and retry.</p>
+      <% } else { %>
+        <p class="mt-0.5 text-sm text-black/50">Only pending posts can be updated. Media cannot be changed here.</p>
+      <% } %>
     </div>
 
     <!-- Targets summary (read-only) -->
@@ -31,9 +35,15 @@
           };
         %>
         <% post.targets.forEach(function(t) { %>
-          <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold <%= platformColor[t.platform] || 'bg-black/10 text-black/70' %>">
-            <%= t.platform %> <span class="opacity-70">@<%= t.username %></span>
-          </span>
+          <div>
+            <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold <%= platformColor[t.platform] || 'bg-black/10 text-black/70' %>">
+              <%= t.platform %> <span class="opacity-70">@<%= t.username %></span>
+              <% if (t.status === 'failed') { %><span>✕</span><% } %>
+            </span>
+            <% if (t.status === 'failed' && t.error_message) { %>
+              <p class="mt-0.5 text-xs text-red-500"><%= t.error_message %></p>
+            <% } %>
+          </div>
         <% }) %>
       </div>
     </div>
@@ -128,8 +138,8 @@
     </div>
 
     <div class="flex items-center gap-3 pt-1">
-      <button type="submit" class="rounded-md bg-mint px-5 py-2.5 text-sm font-semibold text-white">Save changes</button>
-      <a href="/scheduled" class="rounded-md border border-black/15 px-4 py-2.5 text-sm font-medium text-black/60 hover:bg-black/5">Cancel</a>
+      <button type="submit" class="rounded-md bg-mint px-5 py-2.5 text-sm font-semibold text-white"><%= post.status === 'failed' ? 'Retry now' : 'Save changes' %></button>
+      <a href="<%= post.status === 'failed' ? '/history' : '/scheduled' %>" class="rounded-md border border-black/15 px-4 py-2.5 text-sm font-medium text-black/60 hover:bg-black/5">Cancel</a>
     </div>
   </form>
 </div>

@@ -95,9 +95,9 @@
             <div class="flex items-center justify-end gap-1">
               <a href="/posts/new?copyFrom=<%= post.id %>"
                  class="rounded px-2 py-1 text-xs font-medium text-mint hover:bg-emerald-50" title="Copy as new post">Copy</a>
-              <% if (post.status === 'pending') { %>
+              <% if (post.status === 'pending' || post.status === 'failed') { %>
                 <a href="/posts/<%= post.id %>/edit"
-                   class="rounded px-2 py-1 text-xs font-medium text-black/50 hover:bg-black/5">Edit</a>
+                   class="rounded px-2 py-1 text-xs font-medium <%= post.status === 'failed' ? 'text-amber-600 hover:bg-amber-50' : 'text-black/50 hover:bg-black/5' %>"><%= post.status === 'failed' ? 'Retry' : 'Edit' %></a>
               <% } %>
               <form method="post" action="/posts/<%= post.id %>?_method=DELETE" data-confirm="Remove this post?">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">

@@ -414,9 +414,9 @@ async function editPost(req, res, next) {
   try {
     const post = await postModel.findWithTargets(req.params.id);
     if (!post || post.user_id !== req.user.id) return res.status(404).render('errors/404');
-    if (post.status !== 'pending') {
-      req.flash('error', 'Only pending posts can be edited.');
-      return res.redirect('/scheduled');
+    if (post.status !== 'pending' && post.status !== 'failed') {
+      req.flash('error', 'Only pending or failed posts can be edited.');
+      return res.redirect('/history');
     }
     const platforms = [...new Set(post.targets.map((t) => t.platform))];
     let pinterestBoards = [];
@@ -449,6 +449,7 @@ async function updatePost(req, res, next) {
         }
       } : {})
     };
+    const wasFailed = (await postModel.findWithTargets(req.params.id))?.status === 'failed';
     const updated = await postModel.update(req.params.id, req.user.id, {
       caption: caption || '',
       scheduledFor: scheduledFor || null,
@@ -456,10 +457,18 @@ async function updatePost(req, res, next) {
     });
     if (!updated) {
       req.flash('error', 'Post not found or cannot be edited.');
-      return res.redirect('/scheduled');
+      return res.redirect('/history');
     }
-    req.flash('success', 'Post updated.');
-    res.redirect('/scheduled');
+
+    if (wasFailed) {
+      await postModel.resetFailedTargets(updated.id);
+      const { enqueuePost } = require('../queues/publishQueue');
+      await enqueuePost(updated, updated.scheduled_for);
+      req.flash('success', updated.scheduled_for ? 'Post rescheduled.' : 'Re-publishing started.');
+    } else {
+      req.flash('success', 'Post updated.');
+    }
+    res.redirect(wasFailed ? '/history' : '/scheduled');
   } catch (err) { next(err); }
 }
 

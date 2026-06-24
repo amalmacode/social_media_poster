@@ -212,6 +212,13 @@ if (mediaGrid) {
       return;
     }
 
+    // Disable inputs inside hidden platform sections so they don't get submitted
+    document.querySelectorAll('[data-field]').forEach((section) => {
+      if (section.classList.contains('hidden')) {
+        section.querySelectorAll('input, select, textarea').forEach((el) => { el.disabled = true; });
+      }
+    });
+
     const pinterestActive = !document.querySelector('[data-field="pinterest"]')?.classList.contains('hidden');
     if (pinterestActive) {
       const urlInput = document.querySelector('input[name="pinterestDestinationUrl"]');
@@ -220,6 +227,8 @@ if (mediaGrid) {
         e.preventDefault();
         showToast('Pinterest destination link must be a valid URL starting with https://', 'error');
         urlInput.focus();
+        // Re-enable disabled fields in case user fixes and resubmits
+        document.querySelectorAll('[data-field] :disabled').forEach((el) => { el.disabled = false; });
         return;
       }
     }

@@ -155,8 +155,9 @@ async function dashboardCounts(userId) {
 async function update(id, userId, { caption, scheduledFor, platformPayloads }) {
   const { rows } = await query(
     `UPDATE posts
-     SET caption = $3, scheduled_for = $4, platform_payloads = $5
-     WHERE id = $1 AND user_id = $2 AND status = 'pending'
+     SET caption = $3, scheduled_for = $4, platform_payloads = $5,
+         status = CASE WHEN status = 'failed' THEN 'pending'::post_status ELSE status END
+     WHERE id = $1 AND user_id = $2 AND status IN ('pending', 'failed')
      RETURNING *`,
     [id, userId, caption || '', scheduledFor || null, platformPayloads || {}]
   );
@@ -171,9 +172,17 @@ async function reschedule(id, userId, scheduledFor) {
   return rows[0] || null;
 }
 
+async function resetFailedTargets(postId) {
+  await query(
+    `UPDATE post_platforms SET status = 'pending', error_message = NULL
+     WHERE post_id = $1 AND status = 'failed'`,
+    [postId]
+  );
+}
+
 async function remove(id, userId) {
   const { rows } = await query('DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId]);
   return rows[0] || null;
 }
 
-module.exports = { create, listByUser, findWithTargets, updatePostStatus, updateTargetStatus, dashboardCounts, update, reschedule, remove };
+module.exports = { create, listByUser, findWithTargets, updatePostStatus, updateTargetStatus, dashboardCounts, update, reschedule, resetFailedTargets, remove };
