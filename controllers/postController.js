@@ -228,8 +228,26 @@ async function history(req, res, next) {
 
 async function scheduled(req, res, next) {
   try {
-    const posts = await postModel.listByUser(req.user.id, { limit: 50, status: 'pending' });
-    res.render('posts/scheduled', { title: 'Scheduled posts', posts });
+    const { brand, account, from, to } = req.query;
+    const filters = { limit: 50, status: 'pending' };
+    if (brand) filters.brandId = brand;
+    if (account) filters.accountId = account;
+    if (from) filters.dateFrom = new Date(from);
+    if (to) {
+      const d = new Date(to);
+      d.setDate(d.getDate() + 1);
+      filters.dateTo = d;
+    }
+
+    const [posts, accounts, brands] = await Promise.all([
+      postModel.listByUser(req.user.id, filters),
+      accountModel.listByUser(req.user.id),
+      brandAccountModel.listByUser(req.user.id)
+    ]);
+    res.render('posts/scheduled', {
+      title: 'Scheduled posts', posts, accounts, brands,
+      filters: { brand: brand || '', account: account || '', from: from || '', to: to || '' }
+    });
   } catch (error) {
     next(error);
   }
