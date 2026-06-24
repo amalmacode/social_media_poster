@@ -133,7 +133,7 @@
         <div id="emoji-picker" class="hidden absolute z-30 right-0 top-full mt-1 w-80 rounded-xl border border-black/10 bg-white shadow-xl" style="max-height:300px;overflow:hidden"></div>
       </div>
     </div>
-    <textarea name="caption" rows="7" maxlength="5000" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" data-caption></textarea>
+    <textarea name="caption" rows="7" maxlength="5000" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" data-caption><%= prefill ? prefill.caption : '' %></textarea>
     <p class="mt-1 text-xs text-black/50"><span data-caption-count>0</span> characters. Instagram limit is 2,200.</p>
     <div class="mt-5">
       <p class="text-sm font-medium">Publish to</p>
@@ -215,17 +215,18 @@
     <div class="mt-5 grid gap-4 sm:grid-cols-2" data-platform-fields>
       <div data-field="youtube" class="hidden rounded-md border border-black/10 p-3">
         <label class="block text-sm font-medium">YouTube title</label>
-        <input name="youtubeTitle" maxlength="100" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2">
+        <input name="youtubeTitle" maxlength="100" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" value="<%= prefill ? (prefill.youtube.title || '') : '' %>">
       </div>
       <div data-field="tiktok" class="hidden rounded-md border border-black/10 p-3">
         <label class="block text-sm font-medium">TikTok title / caption</label>
-        <input name="tiktokTitle" maxlength="2200" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" placeholder="Defaults to main caption">
+        <input name="tiktokTitle" maxlength="2200" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" placeholder="Defaults to main caption" value="<%= prefill ? (prefill.tiktok.title || '') : '' %>">
         <label class="mt-3 block text-sm font-medium">Privacy</label>
+        <% const tkPriv = prefill ? (prefill.tiktok.privacyLevel || prefill.tiktok.privacy || 'PUBLIC_TO_EVERYONE') : 'PUBLIC_TO_EVERYONE'; %>
         <select name="tiktokPrivacy" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm">
-          <option value="PUBLIC_TO_EVERYONE">Public</option>
-          <option value="FOLLOWER_OF_CREATOR">Followers only</option>
-          <option value="MUTUAL_FOLLOW_FRIENDS">Friends</option>
-          <option value="SELF_ONLY">Only me (testing)</option>
+          <option value="PUBLIC_TO_EVERYONE" <%= tkPriv === 'PUBLIC_TO_EVERYONE' ? 'selected' : '' %>>Public</option>
+          <option value="FOLLOWER_OF_CREATOR" <%= tkPriv === 'FOLLOWER_OF_CREATOR' ? 'selected' : '' %>>Followers only</option>
+          <option value="MUTUAL_FOLLOW_FRIENDS" <%= tkPriv === 'MUTUAL_FOLLOW_FRIENDS' ? 'selected' : '' %>>Friends</option>
+          <option value="SELF_ONLY" <%= tkPriv === 'SELF_ONLY' ? 'selected' : '' %>>Only me (testing)</option>
         </select>
       </div>
       <div data-field="pinterest" class="hidden rounded-md border border-black/10 p-3">
@@ -234,18 +235,18 @@
           <select name="pinterestBoardId" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm">
             <option value="">— select a board —</option>
             <% pinterestBoards.forEach(function(board) { %>
-              <option value="<%= board.id %>"><%= board.name %></option>
+              <option value="<%= board.id %>" <%= prefill && prefill.pinterest.boardId === board.id ? 'selected' : '' %>><%= board.name %></option>
             <% }) %>
           </select>
         <% } else { %>
           <p class="mt-1 text-xs text-black/50">No boards found. <a href="/accounts/pinterest/connect" class="underline">Connect Pinterest</a> to load your boards.</p>
         <% } %>
         <label class="mt-3 block text-sm font-medium">Pin title</label>
-        <input name="pinterestTitle" maxlength="100" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2">
+        <input name="pinterestTitle" maxlength="100" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" value="<%= prefill ? (prefill.pinterest.title || '') : '' %>">
         <label class="mt-3 block text-sm font-medium">Destination link</label>
-        <input name="pinterestDestinationUrl" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" placeholder="https://...">
+        <input name="pinterestDestinationUrl" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" placeholder="https://..." value="<%= prefill ? (prefill.pinterest.destinationUrl || '') : '' %>">
         <label class="mt-3 block text-sm font-medium">Description</label>
-        <textarea name="pinterestDescription" rows="3" maxlength="500" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2"></textarea>
+        <textarea name="pinterestDescription" rows="3" maxlength="500" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2"><%= prefill ? (prefill.pinterest.description || '') : '' %></textarea>
       </div>
     </div>
     <div class="mt-5 rounded-md border border-black/10 p-3">
@@ -359,4 +360,11 @@
 <script>
   window.__folders = <%- JSON.stringify(folders) %>;
   window.__csrfToken = '<%= csrfToken %>';
+  <% if (prefill) { %>
+  window.__prefill = {
+    mediaIds: <%- JSON.stringify(prefill.mediaIds) %>,
+    accountIds: <%- JSON.stringify(prefill.accountIds) %>,
+    watermark: <%= prefill.watermark ? 'true' : 'false' %>
+  };
+  <% } %>
 </script>

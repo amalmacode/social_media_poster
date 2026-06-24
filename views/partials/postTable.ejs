@@ -93,6 +93,8 @@
           </td>
           <td class="px-3 py-3 text-right">
             <div class="flex items-center justify-end gap-1">
+              <a href="/posts/new?copyFrom=<%= post.id %>"
+                 class="rounded px-2 py-1 text-xs font-medium text-mint hover:bg-emerald-50" title="Copy as new post">Copy</a>
               <% if (post.status === 'pending') { %>
                 <a href="/posts/<%= post.id %>/edit"
                    class="rounded px-2 py-1 text-xs font-medium text-black/50 hover:bg-black/5">Edit</a>

@@ -182,6 +182,29 @@ if (mediaGrid) {
     });
   });
 
+  // Pre-select media and accounts when copying a post
+  if (window.__prefill) {
+    const pf = window.__prefill;
+    pf.mediaIds.forEach((id) => {
+      const cb = mediaGrid.querySelector('[data-media-cb][value="' + id + '"]');
+      if (cb) { cb.checked = true; order.push(id); }
+    });
+    syncSelection();
+    pf.accountIds.forEach((id) => {
+      const cb = document.querySelector('input[name="accounts"][value="' + id + '"]');
+      if (cb) cb.checked = true;
+    });
+    if (typeof updatePlatformFields === 'function') updatePlatformFields();
+    if (!pf.watermark) {
+      const wmCb = document.getElementById('apply-watermark-cb');
+      if (wmCb) wmCb.checked = false;
+    }
+    // Update caption counter
+    const captionEl = document.querySelector('[data-caption]');
+    const counterEl = document.querySelector('[data-caption-count]');
+    if (captionEl && counterEl) counterEl.textContent = captionEl.value.length;
+  }
+
   document.getElementById('post-form')?.addEventListener('submit', (e) => {
     if (order.length === 0) {
       e.preventDefault();

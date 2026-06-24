@@ -42,7 +42,25 @@ async function newPost(req, res, next) {
     const pinterestBoards = accounts
       .filter((a) => a.platform === 'pinterest')
       .flatMap((a) => (a.metadata_json?.boards || []).map((b) => ({ id: b.id, name: b.name })));
-    res.render('posts/new', { title: 'Create post', media, accounts, brandAccounts, pinterestBoards, folders });
+
+    let prefill = null;
+    if (req.query.copyFrom) {
+      const source = await postModel.findWithTargets(req.query.copyFrom);
+      if (source && source.user_id === req.user.id) {
+        const pp = source.platform_payloads || {};
+        prefill = {
+          caption: source.caption || '',
+          mediaIds: source.mediaItems.map((m) => m.id),
+          accountIds: source.targets.map((t) => t.connected_account_id).filter(Boolean),
+          youtube: pp.youtube || {},
+          tiktok: pp.tiktok || {},
+          pinterest: pp.pinterest || {},
+          watermark: !!pp.watermark
+        };
+      }
+    }
+
+    res.render('posts/new', { title: 'Create post', media, accounts, brandAccounts, pinterestBoards, folders, prefill });
   } catch (error) {
     next(error);
   }
