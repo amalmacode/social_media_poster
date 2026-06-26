@@ -394,7 +394,13 @@ document.addEventListener('submit', (e) => {
   const sign = off >= 0 ? '+' : '-';
   const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
   const mm = String(Math.abs(off) % 60).padStart(2, '0');
-  input.value = raw + ':00' + sign + hh + ':' + mm;
+  // datetime-local inputs reject timezone offsets, so use a hidden input instead
+  input.removeAttribute('name');
+  const hidden = document.createElement('input');
+  hidden.type = 'hidden';
+  hidden.name = 'scheduledFor';
+  hidden.value = raw + ':00' + sign + hh + ':' + mm;
+  form.appendChild(hidden);
 });
 
 document.querySelectorAll('input[name="publishMode"]').forEach((input) => {
