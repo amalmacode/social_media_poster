@@ -387,7 +387,7 @@ document.addEventListener('submit', (e) => {
   const input = form.querySelector('input[name="scheduledFor"]');
   if (!input || !input.value) return;
   const raw = input.value;
-  if (/[Z+\-]\d/.test(raw)) return;
+  if (/[+-]\d{2}:\d{2}$|Z$/.test(raw)) return;
   const local = new Date(raw);
   if (isNaN(local.getTime())) return;
   const off = -local.getTimezoneOffset();
