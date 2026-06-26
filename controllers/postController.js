@@ -478,14 +478,19 @@ async function updatePost(req, res, next) {
       return res.redirect('/history');
     }
 
-    if (wasFailed) {
-      await postModel.resetFailedTargets(updated.id);
-      const { enqueuePost } = require('../queues/publishQueue');
-      await enqueuePost(updated, updated.scheduled_for);
-      req.flash('success', updated.scheduled_for ? 'Post rescheduled.' : 'Re-publishing started.');
-    } else {
-      req.flash('success', 'Post updated.');
-    }
+    try {
+      const { publishQueue, publishJobId, enqueuePost } = require('../queues/publishQueue');
+      if (wasFailed) {
+        await postModel.resetFailedTargets(updated.id);
+        await enqueuePost(updated, updated.scheduled_for);
+        req.flash('success', updated.scheduled_for ? 'Post rescheduled.' : 'Re-publishing started.');
+      } else {
+        const existing = await publishQueue.getJob(publishJobId(updated.id));
+        if (existing) await existing.remove();
+        await enqueuePost(updated, updated.scheduled_for);
+        req.flash('success', 'Post updated.');
+      }
+    } catch { /* Redis unavailable — DB is updated */ }
     res.redirect(wasFailed ? '/history' : '/scheduled');
   } catch (err) { next(err); }
 }

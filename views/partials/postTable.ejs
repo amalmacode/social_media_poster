@@ -70,8 +70,14 @@
           </td>
           <td class="px-3 py-3 text-black/55">
             <% if (post.status === 'pending' && post.scheduled_for) { %>
+              <%
+                const sf = new Date(post.scheduled_for);
+                const sfPad = (n) => String(n).padStart(2, '0');
+                const sfFallback = sf.getUTCFullYear() + '-' + sfPad(sf.getUTCMonth()+1) + '-' + sfPad(sf.getUTCDate()) +
+                                   'T' + sfPad(sf.getUTCHours()) + ':' + sfPad(sf.getUTCMinutes());
+              %>
               <div class="flex items-center gap-1">
-                <span id="sched-label-<%= post.id %>" class="text-xs" data-utc-label="<%= new Date(post.scheduled_for).toISOString() %>"></span>
+                <span id="sched-label-<%= post.id %>" class="text-xs" data-utc-label="<%= sf.toISOString() %>"></span>
                 <button type="button" data-toggle="sched-form-<%= post.id %>"
                         class="rounded p-0.5 text-black/30 hover:text-black/70" title="Edit schedule">
                   <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -81,7 +87,7 @@
                     action="/posts/<%= post.id %>/reschedule"
                     class="hidden mt-1 flex items-center gap-1">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <input type="datetime-local" name="scheduledFor" data-utc="<%= new Date(post.scheduled_for).toISOString() %>"
+                <input type="datetime-local" name="scheduledFor" value="<%= sfFallback %>" data-utc="<%= sf.toISOString() %>"
                        class="rounded border border-black/15 px-2 py-0.5 text-xs">
                 <button type="submit" class="rounded bg-mint px-2 py-0.5 text-xs font-medium text-white">Save</button>
                 <button type="button" data-hide="sched-form-<%= post.id %>"

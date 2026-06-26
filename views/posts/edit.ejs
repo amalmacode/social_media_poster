@@ -5,6 +5,14 @@
   const pt = pp.pinterest || {};
 
   const scheduledIso = post.scheduled_for ? new Date(post.scheduled_for).toISOString() : '';
+  const scheduledFallback = post.scheduled_for
+    ? (function() {
+        const d = new Date(post.scheduled_for);
+        const pad = (n) => String(n).padStart(2, '0');
+        return d.getUTCFullYear() + '-' + pad(d.getUTCMonth()+1) + '-' + pad(d.getUTCDate()) +
+               'T' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+      })()
+    : '';
 %>
 <div class="mx-auto max-w-2xl space-y-5">
   <div class="flex items-center gap-3">
@@ -132,7 +140,7 @@
     <!-- Schedule -->
     <div class="rounded-md border border-black/10 p-4">
       <p class="text-sm font-medium">Scheduled date & time</p>
-      <input type="datetime-local" name="scheduledFor" data-utc="<%= scheduledIso %>"
+      <input type="datetime-local" name="scheduledFor" value="<%= scheduledFallback %>" data-utc="<%= scheduledIso %>"
         class="mt-2 rounded-md border border-black/15 px-3 py-2 text-sm">
       <p class="mt-1 text-xs text-black/40">Leave unchanged to keep the current schedule.</p>
     </div>
