@@ -15,6 +15,7 @@ router.get('/pinterest/connect', ensureAuthenticated, accountController.connectP
 router.get('/pinterest/callback', ensureAuthenticated, accountController.pinterestCallback);
 router.get('/pinterest/connect-token', ensureAuthenticated, accountController.connectPinterestToken);
 router.post('/pinterest/connect-token', ensureAuthenticated, accountController.pinterestTokenConnect);
+router.post('/pinterest/:id/refresh-boards', ensureAuthenticated, accountController.refreshPinterestBoards);
 router.get('/tiktok/connect', ensureAuthenticated, accountController.connectTikTok);
 router.get('/tiktok/callback', ensureAuthenticated, accountController.tiktokCallback);
 

@@ -63,6 +63,18 @@
                     <% if (t.status === 'failed' && t.error_message) { %>
                       <p class="mt-0.5 max-w-[240px] truncate text-xs text-red-500" title="<%= t.error_message %>"><%= t.error_message %></p>
                     <% } %>
+                    <% if (t.platform === 'pinterest' && t.status === 'success' && t.remote_post_id) { %>
+                      <% if (t.api_response && t.api_response.remote_deleted) { %>
+                        <p class="mt-0.5 text-xs text-black/40">Deleted from Pinterest</p>
+                      <% } else { %>
+                        <form method="post" action="/posts/targets/<%= t.id %>/pinterest/delete-pin"
+                              class="mt-1 inline-block"
+                              data-confirm="Delete this Pin from Pinterest? This cannot be undone on Pinterest.">
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                          <button type="submit" class="rounded border border-red-200 px-2 py-0.5 text-xs font-medium text-red-600 hover:bg-red-50">Delete Pin</button>
+                        </form>
+                      <% } %>
+                    <% } %>
                   </div>
                 <% }) %>
               </div>

@@ -74,11 +74,13 @@ async function listByUser(userId, options = {}) {
       COALESCE(
         json_agg(
           json_build_object(
+            'id', pp.id,
             'platform', pp.platform,
             'username', ca.username,
             'status', pp.status,
             'error_message', pp.error_message,
-            'remote_post_id', pp.remote_post_id
+            'remote_post_id', pp.remote_post_id,
+            'api_response', pp.api_response
           ) ORDER BY pp.created_at
         ) FILTER (WHERE pp.id IS NOT NULL),
         '[]'::json
@@ -180,9 +182,33 @@ async function resetFailedTargets(postId) {
   );
 }
 
+async function findTargetForUser(targetId, userId) {
+  const { rows } = await query(
+    `SELECT pp.*, p.user_id, ca.access_token, ca.refresh_token, ca.expires_at, ca.metadata_json, ca.username
+     FROM post_platforms pp
+     JOIN posts p ON p.id = pp.post_id
+     JOIN connected_accounts ca ON ca.id = pp.connected_account_id
+     WHERE pp.id = $1 AND p.user_id = $2`,
+    [targetId, userId]
+  );
+  return rows[0] || null;
+}
+
+async function markRemoteDeleted(targetId, apiResponse) {
+  const { rows } = await query(
+    `UPDATE post_platforms
+     SET api_response = COALESCE(api_response, '{}'::jsonb) || $2::jsonb,
+       error_message = NULL
+     WHERE id = $1
+     RETURNING *`,
+    [targetId, apiResponse || {}]
+  );
+  return rows[0] || null;
+}
+
 async function remove(id, userId) {
   const { rows } = await query('DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId]);
   return rows[0] || null;
 }
 
-module.exports = { create, listByUser, findWithTargets, updatePostStatus, updateTargetStatus, dashboardCounts, update, reschedule, resetFailedTargets, remove };
+module.exports = { create, listByUser, findWithTargets, findTargetForUser, updatePostStatus, updateTargetStatus, markRemoteDeleted, dashboardCounts, update, reschedule, resetFailedTargets, remove };

@@ -5,12 +5,19 @@ const accountModel = require('../../models/accountModel');
 const { env } = require('../../config/env');
 const { toSignedPublicUrl } = require('../storage/localStorageService');
 
-const API = 'https://api.pinterest.com/v5';
-const SCOPES = 'boards:read,pins:write,user_accounts:read';
+const DEFAULT_SCOPES = 'boards:read,boards:write,pins:read,pins:write,user_accounts:read';
 
 class PinterestService extends BasePlatformService {
   constructor() {
     super('pinterest');
+  }
+
+  get apiBase() {
+    return env.pinterest.sandbox ? 'https://api-sandbox.pinterest.com/v5' : 'https://api.pinterest.com/v5';
+  }
+
+  get oauthScopes() {
+    return (env.pinterest.oauthScopes?.length ? env.pinterest.oauthScopes : DEFAULT_SCOPES.split(',')).join(',');
   }
 
   // ── OAuth ────────────────────────────────────────────────────────────────
@@ -18,7 +25,7 @@ class PinterestService extends BasePlatformService {
   async exchangeCode({ code, redirectUri }) {
     const creds = Buffer.from(`${env.pinterest.clientId}:${env.pinterest.clientSecret}`).toString('base64');
     const body = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri });
-    const res = await this.client.post(`${API}/oauth/token`, body.toString(), {
+    const res = await this.client.post(`${this.apiBase}/oauth/token`, body.toString(), {
       headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     return res.data;
@@ -28,10 +35,10 @@ class PinterestService extends BasePlatformService {
     if (!account.refresh_token) return account;
     if (!account.expires_at || new Date(account.expires_at).getTime() - Date.now() > 1000 * 60 * 60 * 24 * 7) return account;
     const creds = Buffer.from(`${env.pinterest.clientId}:${env.pinterest.clientSecret}`).toString('base64');
-    const body = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: account.refresh_token, scope: SCOPES });
+    const body = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: account.refresh_token, scope: this.oauthScopes });
     let res;
     try {
-      res = await this.client.post(`${API}/oauth/token`, body.toString(), {
+      res = await this.client.post(`${this.apiBase}/oauth/token`, body.toString(), {
         headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' }
       });
     } catch (err) {
@@ -60,18 +67,39 @@ class PinterestService extends BasePlatformService {
   }
 
   async getProfile(accessToken) {
-    const res = await this.client.get(`${API}/user_account`, {
+    const res = await this.client.get(`${this.apiBase}/user_account`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     return res.data;
   }
 
   async getBoards(accessToken) {
-    const res = await this.client.get(`${API}/boards`, {
+    const res = await this.client.get(`${this.apiBase}/boards`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: { page_size: 100 }
     });
+    console.log('[Pinterest] getBoards raw response ->', JSON.stringify(res.data, null, 2));
     return res.data.items || [];
+  }
+
+  async createBoard(accessToken, name = 'Sandbox Test Board') {
+    const res = await this.client.post(`${this.apiBase}/boards`, {
+      name,
+      description: 'Created by Social Media Poster for Pinterest API testing.'
+    }, {
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+    });
+    console.log('[Pinterest] createBoard raw response ->', JSON.stringify(res.data, null, 2));
+    return res.data;
+  }
+
+  async ensureWritableBoard(accessToken) {
+    let boards = await this.getBoards(accessToken);
+    if (!boards.length && env.pinterest.sandbox) {
+      await this.createBoard(accessToken);
+      boards = await this.getBoards(accessToken);
+    }
+    return boards;
   }
 
   // ── Publishing ───────────────────────────────────────────────────────────
@@ -97,18 +125,18 @@ class PinterestService extends BasePlatformService {
   }
 
   async createImagePin(account, post, media, payload) {
-    const url = this.requirePublicUrl(media);
+    const url = this.requirePublicUrl(media, { allowMissingForImage: true });
     const body = {
       board_id: payload.boardId,
       title: payload.title || '',
       description: payload.description || post.caption || '',
       ...(payload.destinationUrl && { link: payload.destinationUrl }),
-      media_source: { source_type: 'image_url', url }
+      media_source: this.imageMediaSource(media, url)
     };
     console.log('[Pinterest] createImagePin → board_id:', payload.boardId, '| url:', url);
     let res;
     try {
-      res = await this.client.post(`${API}/pins`, body, {
+      res = await this.client.post(`${this.apiBase}/pins`, body, {
         headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json' }
       });
     } catch (err) {
@@ -131,7 +159,7 @@ class PinterestService extends BasePlatformService {
       description: payload.description || post.caption || '',
       media_source: { source_type: 'multiple_image_urls', items: carouselItems }
     };
-    const res = await this.client.post(`${API}/pins`, body, {
+    const res = await this.client.post(`${this.apiBase}/pins`, body, {
       headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json' }
     });
     return { platform: 'pinterest', remotePostId: res.data.id, raw: res.data };
@@ -139,7 +167,7 @@ class PinterestService extends BasePlatformService {
 
   async createVideoPin(account, post, media, payload) {
     // Step 1 — register upload slot
-    const reg = await this.client.post(`${API}/media`, { media_type: 'video' }, {
+    const reg = await this.client.post(`${this.apiBase}/media`, { media_type: 'video' }, {
       headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json' }
     });
     const { media_id, upload_url, upload_parameters } = reg.data;
@@ -153,7 +181,7 @@ class PinterestService extends BasePlatformService {
 
     // Step 3 — poll until processing finishes
     for (let i = 0; i < 30; i++) {
-      const status = await this.client.get(`${API}/media/${media_id}`, {
+      const status = await this.client.get(`${this.apiBase}/media/${media_id}`, {
         headers: { Authorization: `Bearer ${account.access_token}` }
       });
       if (status.data.status === 'succeeded') break;
@@ -174,16 +202,38 @@ class PinterestService extends BasePlatformService {
         ...(coverUrl && { cover_image_url: coverUrl })
       }
     };
-    const res = await this.client.post(`${API}/pins`, body, {
+    const res = await this.client.post(`${this.apiBase}/pins`, body, {
       headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json' }
     });
     return { platform: 'pinterest', remotePostId: res.data.id, raw: res.data };
   }
 
-  requirePublicUrl(media) {
+  async deletePin(account, pinId) {
+    const freshAccount = await this.refreshToken(account);
+    await this.client.delete(`${this.apiBase}/pins/${pinId}`, {
+      headers: { Authorization: `Bearer ${freshAccount.access_token}` }
+    });
+    return { platform: 'pinterest', remotePostId: pinId, raw: { deleted: true, id: pinId } };
+  }
+
+  requirePublicUrl(media, options = {}) {
     const url = toSignedPublicUrl(media.file_path);
-    if (!url) this.permanent('Pinterest publishing requires APP_URL or PUBLIC_MEDIA_BASE_URL to be set.');
+    if (!url && !(options.allowMissingForImage && media.mime_type?.startsWith('image/'))) {
+      this.permanent('Pinterest publishing requires APP_URL or PUBLIC_MEDIA_BASE_URL to be set.');
+    }
     return url;
+  }
+
+  imageMediaSource(media, url) {
+    const localPath = path.resolve(process.cwd(), media.file_path);
+    if (media.mime_type?.startsWith('image/') && fs.existsSync(localPath)) {
+      return {
+        source_type: 'image_base64',
+        content_type: media.mime_type,
+        data: fs.readFileSync(localPath).toString('base64')
+      };
+    }
+    return { source_type: 'image_url', url };
   }
 }
 

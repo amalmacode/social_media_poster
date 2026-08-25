@@ -24,7 +24,9 @@
       <ol class="list-decimal list-inside space-y-1 text-xs">
         <li>Go to <strong>developers.pinterest.com → My Apps → your app</strong></li>
         <li>Open the <strong>Auth</strong> tab (or "Generate access token")</li>
-        <li>Click <strong>Generate token</strong> — select the scopes: <code class="rounded bg-amber-100 px-1">boards:read</code>, <code class="rounded bg-amber-100 px-1">pins:write</code>, <code class="rounded bg-amber-100 px-1">user_accounts:read</code></li>
+        <li>For write tests, use a <strong>Sandbox token</strong>. Production limited test tokens are read-only.</li>
+        <li>Use scopes: <code class="rounded bg-amber-100 px-1">boards:read</code>, <code class="rounded bg-amber-100 px-1">pins:read</code>, <code class="rounded bg-amber-100 px-1">pins:write</code>, <code class="rounded bg-amber-100 px-1">user_accounts:read</code></li>
+        <li>If the token is Sandbox, set <code class="rounded bg-amber-100 px-1">PINTEREST_SANDBOX=true</code> and restart the app before pasting it here.</li>
         <li>Copy the generated token and paste it below</li>
       </ol>
     </div>

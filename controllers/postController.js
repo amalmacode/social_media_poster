@@ -7,6 +7,7 @@ const accountModel = require('../models/accountModel');
 const brandAccountModel = require('../models/brandAccountModel');
 const postModel = require('../models/postModel');
 const mediaService = require('../services/media/mediaService');
+const pinterestService = require('../services/platforms/pinterestService');
 const { cropVideo, cropImage, probe, screenshot } = require('../services/media/mediaProcessor');
 const { updateStatus: updateMediaStatus } = require('../models/mediaModel');
 const { relativeUploadPath } = require('../services/storage/localStorageService');
@@ -172,6 +173,32 @@ async function deletePost(req, res, next) {
 
     await postModel.remove(post.id, req.user.id);
     req.flash('success', 'Post removed.');
+    res.redirect(req.get('Referer') || '/history');
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deletePinterestPin(req, res, next) {
+  try {
+    const target = await postModel.findTargetForUser(req.params.targetId, req.user.id);
+    if (!target || target.platform !== 'pinterest') throw new AppError('Pinterest publish target not found.', 404);
+    if (!target.remote_post_id) throw new AppError('This Pinterest target has no remote Pin id.', 400);
+    if (target.api_response?.remote_deleted) {
+      req.flash('success', 'This Pin was already marked as deleted.');
+      return res.redirect(req.get('Referer') || '/history');
+    }
+
+    const account = await accountModel.findForUser(target.connected_account_id, req.user.id);
+    if (!account) throw new AppError('Connected Pinterest account not found.', 404);
+    await pinterestService.deletePin(account, target.remote_post_id);
+
+    await postModel.markRemoteDeleted(target.id, {
+      remote_deleted: true,
+      remote_deleted_at: new Date().toISOString(),
+      remote_deleted_by: req.user.id
+    });
+    req.flash('success', 'Pinterest Pin deleted.');
     res.redirect(req.get('Referer') || '/history');
   } catch (error) {
     next(error);
@@ -495,4 +522,4 @@ async function updatePost(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, history, scheduled, reschedulePost, cropMedia, cropImageMedia, createFolder, deleteFolder, moveMediaToFolder, editPost, updatePost };
+module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, deletePinterestPin, history, scheduled, reschedulePost, cropMedia, cropImageMedia, createFolder, deleteFolder, moveMediaToFolder, editPost, updatePost };

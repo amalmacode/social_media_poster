@@ -308,7 +308,7 @@ function connectPinterest(req, res) {
   url.searchParams.set('client_id', env.pinterest.clientId);
   url.searchParams.set('redirect_uri', `${env.appUrl}/accounts/pinterest/callback`);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', 'boards:read,pins:write,user_accounts:read');
+  url.searchParams.set('scope', pinterestService.oauthScopes);
   url.searchParams.set('state', state);
   res.redirect(url.toString());
 }
@@ -318,10 +318,8 @@ async function pinterestCallback(req, res, next) {
     if (!req.query.state || req.query.state !== req.session.pinterestOAuthState) throw new Error('Invalid OAuth state.');
     const redirectUri = `${env.appUrl}/accounts/pinterest/callback`;
     const token = await pinterestService.exchangeCode({ code: req.query.code, redirectUri });
-    const [profile, boards] = await Promise.all([
-      pinterestService.getProfile(token.access_token),
-      pinterestService.getBoards(token.access_token)
-    ]);
+    const profile = await pinterestService.getProfile(token.access_token);
+    const boards = await pinterestService.ensureWritableBoard(token.access_token);
     await accountModel.upsert({
       userId: req.user.id,
       platform: 'pinterest',
@@ -330,9 +328,11 @@ async function pinterestCallback(req, res, next) {
       accessToken: token.access_token,
       refreshToken: token.refresh_token || null,
       expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
-      metadata: { boards, profile }
+      metadata: { boards, profile, sandbox: env.pinterest.sandbox, scopes: token.scope || pinterestService.oauthScopes }
     });
-    req.flash('success', `Pinterest connected: @${profile.username} — ${boards.length} board(s) loaded.`);
+    req.flash(boards.length ? 'success' : 'error', boards.length
+      ? `Pinterest connected: @${profile.username} — ${boards.length} board(s) loaded.`
+      : 'Pinterest connected, but no boards were returned. Check token scopes and sandbox/production mode.');
     res.redirect('/accounts');
   } catch (error) {
     next(error);
@@ -358,7 +358,7 @@ async function pinterestTokenConnect(req, res, next) {
   // Direct raw call — bypasses service layer, shows exactly what Pinterest returns
   let profileRes;
   try {
-    profileRes = await axios.get('https://api.pinterest.com/v5/user_account', {
+    profileRes = await axios.get(`${pinterestService.apiBase}/user_account`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json',
@@ -393,13 +393,17 @@ async function pinterestTokenConnect(req, res, next) {
 
   let boards = [];
   try {
-    const boardsRes = await axios.get('https://api.pinterest.com/v5/boards', {
+    const boardsRes = await axios.get(`${pinterestService.apiBase}/boards`, {
       headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' },
       params: { page_size: 100 },
       validateStatus: null
     });
     console.log(`[Pinterest token] boards → HTTP ${boardsRes.status}`, JSON.stringify(boardsRes.data, null, 2));
     if (boardsRes.status === 200) boards = boardsRes.data.items || [];
+    if (!boards.length && env.pinterest.sandbox) {
+      await pinterestService.createBoard(accessToken);
+      boards = await pinterestService.getBoards(accessToken);
+    }
   } catch (err) {
     console.warn('[Pinterest token] boards request failed:', err.message);
   }
@@ -412,10 +416,31 @@ async function pinterestTokenConnect(req, res, next) {
     accessToken,
     refreshToken: null,
     expiresAt: null,
-    metadata: { boards: boards.map((b) => ({ id: b.id, name: b.name })), profile, sandbox: true }
+    metadata: { boards: boards.map((b) => ({ id: b.id, name: b.name })), profile, sandbox: env.pinterest.sandbox, scopes: 'manual-token-unknown' }
   });
   req.flash('success', `Pinterest connected: @${profile.username} — ${boards.length} board(s) loaded.`);
   res.redirect('/accounts');
+}
+
+async function refreshPinterestBoards(req, res, next) {
+  try {
+    const account = await accountModel.findForUser(req.params.id, req.user.id);
+    if (!account || account.platform !== 'pinterest') throw new Error('Pinterest account not found.');
+    const freshAccount = await pinterestService.refreshToken(account);
+    const boards = await pinterestService.ensureWritableBoard(freshAccount.access_token);
+    await accountModel.updateMetadata(account.id, req.user.id, {
+      ...(account.metadata_json || {}),
+      boards: boards.map((b) => ({ id: b.id, name: b.name })),
+      sandbox: env.pinterest.sandbox,
+      lastBoardRefreshAt: new Date().toISOString()
+    });
+    req.flash(boards.length ? 'success' : 'error', boards.length
+      ? `Pinterest boards refreshed: ${boards.length} board(s).`
+      : 'Pinterest returned zero boards. Reconnect with boards:read and boards:write, or create a board in the same Pinterest environment.');
+    res.redirect('/accounts');
+  } catch (error) {
+    next(error);
+  }
 }
 
 function connectTikTok(req, res) {
@@ -494,6 +519,7 @@ module.exports = {
   pinterestCallback,
   connectPinterestToken,
   pinterestTokenConnect,
+  refreshPinterestBoards,
   connectTikTok,
   tiktokCallback,
   debugInstagramPages,

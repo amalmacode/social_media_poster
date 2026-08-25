@@ -138,6 +138,13 @@
               <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button class="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">Disconnect</button>
             </form>
+            <% if (isPinterest) { %>
+              <form method="post" action="/accounts/pinterest/<%= account.id %>/refresh-boards" class="mt-2">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="rounded-md border border-black/10 px-3 py-1.5 text-sm font-medium text-black/65 hover:bg-black/5">Refresh boards</button>
+              </form>
+              <p class="mt-2 text-xs text-black/40"><%= (account.metadata_json && account.metadata_json.boards ? account.metadata_json.boards.length : 0) %> board(s)</p>
+            <% } %>
           </div>
         <% }) %>
       </div>

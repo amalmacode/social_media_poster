@@ -60,8 +60,19 @@ async function updateTokens(id, { accessToken, refreshToken, expiresAt, metadata
   return hydrate(rows[0]);
 }
 
+async function updateMetadata(id, userId, metadata) {
+  const { rows } = await query(
+    `UPDATE connected_accounts
+     SET metadata_json = $3
+     WHERE id = $1 AND user_id = $2
+     RETURNING *`,
+    [id, userId, metadata || {}]
+  );
+  return hydrate(rows[0]);
+}
+
 async function remove(id, userId) {
   await query('DELETE FROM connected_accounts WHERE id = $1 AND user_id = $2', [id, userId]);
 }
 
-module.exports = { upsert, listByUser, findForUser, updateTokens, remove };
+module.exports = { upsert, listByUser, findForUser, updateTokens, updateMetadata, remove };

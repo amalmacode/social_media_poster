@@ -28,6 +28,7 @@ router.post('/', ensureAuthenticated, postController.createPost);
 router.get('/:id/edit', ensureAuthenticated, postController.editPost);
 router.patch('/:id', ensureAuthenticated, postController.updatePost);
 router.post('/:id/reschedule', ensureAuthenticated, postController.reschedulePost);
+router.post('/targets/:targetId/pinterest/delete-pin', ensureAuthenticated, postController.deletePinterestPin);
 router.delete('/:id', ensureAuthenticated, postController.deletePost);
 
 module.exports = router;
