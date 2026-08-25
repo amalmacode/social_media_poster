@@ -457,7 +457,7 @@ function connectTikTok(req, res) {
   url.searchParams.set('client_key', env.tiktok.clientKey);
   url.searchParams.set('redirect_uri', `${env.appUrl}/accounts/tiktok/callback`);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', 'user.info.basic,video.publish');
+  url.searchParams.set('scope', env.tiktok.oauthScopes.join(','));
   url.searchParams.set('state', state);
   url.searchParams.set('code_challenge', codeChallenge);
   url.searchParams.set('code_challenge_method', 'S256');
@@ -471,6 +471,12 @@ async function tiktokCallback(req, res, next) {
     const codeVerifier = req.session.tiktokCodeVerifier;
     const token = await tiktokService.exchangeCode({ code: req.query.code, redirectUri, codeVerifier });
     const user = await tiktokService.getUserInfo(token.access_token);
+    let creatorInfo = null;
+    try {
+      creatorInfo = await tiktokService.getCreatorInfo(token.access_token);
+    } catch (creatorError) {
+      console.warn('[TikTok] creator_info/query failed during connect:', creatorError.response?.data || creatorError.message);
+    }
     if (!user) throw new Error('Could not retrieve TikTok user info.');
     const displayName = user.display_name || token.open_id;
     await accountModel.upsert({
@@ -481,7 +487,13 @@ async function tiktokCallback(req, res, next) {
       accessToken: token.access_token,
       refreshToken: token.refresh_token || null,
       expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
-      metadata: { openId: token.open_id, displayName }
+      metadata: {
+        openId: token.open_id,
+        displayName,
+        scopes: token.scope || env.tiktok.oauthScopes.join(','),
+        testMode: env.tiktok.testMode,
+        creatorInfo
+      }
     });
 
     const grantedTt = String(token.scope || '').split(',').map((s) => s.trim()).filter(Boolean);

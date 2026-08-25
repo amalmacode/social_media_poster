@@ -66,7 +66,15 @@ const env = {
   },
   tiktok: {
     clientKey: process.env.TIKTOK_CLIENT_KEY,
-    clientSecret: process.env.TIKTOK_CLIENT_SECRET
+    clientSecret: process.env.TIKTOK_CLIENT_SECRET,
+    testMode: process.env.TIKTOK_TEST_MODE !== 'false',
+    oauthScopes: (process.env.TIKTOK_OAUTH_SCOPES || [
+      'user.info.basic',
+      'video.publish'
+    ].join(','))
+      .split(',')
+      .map((scope) => scope.trim())
+      .filter(Boolean)
   }
 };
 

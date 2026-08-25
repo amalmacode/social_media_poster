@@ -64,6 +64,14 @@ class TikTokService extends BasePlatformService {
     return res.data.data?.user || null;
   }
 
+  async getCreatorInfo(accessToken) {
+    const res = await this.client.post(`${API}/post/publish/creator_info/query/`, {}, {
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8' }
+    });
+    console.log('[TikTok] creator_info/query ->', JSON.stringify(res.data, null, 2));
+    return res.data.data || null;
+  }
+
   // ── Publishing ───────────────────────────────────────────────────────────
 
   async publish({ account, post, media, mediaItems }) {
@@ -71,16 +79,35 @@ class TikTokService extends BasePlatformService {
     const items = (mediaItems && mediaItems.length) ? mediaItems : [media];
     const payload = post.platform_payloads?.tiktok || {};
     const title = (payload.title || post.caption || '').slice(0, 2200).trim() || 'Untitled';
-    const privacyLevel = payload.privacyLevel || 'PUBLIC_TO_EVERYONE';
+    const creatorInfo = await this.getCreatorInfo(freshAccount.access_token);
+    const privacyLevel = this.resolvePrivacyLevel(payload.privacyLevel, creatorInfo);
 
     const videos = items.filter((m) => m.mime_type.startsWith('video/'));
     const images = items.filter((m) => !m.mime_type.startsWith('video/'));
 
-    if (videos.length) return this.publishVideo(freshAccount, videos[0], title, privacyLevel);
-    return this.publishPhoto(freshAccount, images, title, privacyLevel);
+    if (videos.length) return this.publishVideo(freshAccount, videos[0], title, privacyLevel, creatorInfo);
+    return this.publishPhoto(freshAccount, images, title, privacyLevel, creatorInfo);
   }
 
-  async publishVideo(account, media, title, privacyLevel) {
+  resolvePrivacyLevel(requestedPrivacyLevel, creatorInfo) {
+    const options = creatorInfo?.privacy_level_options || [];
+    if (env.tiktok.testMode && options.includes('SELF_ONLY')) return 'SELF_ONLY';
+    if (requestedPrivacyLevel && options.includes(requestedPrivacyLevel)) return requestedPrivacyLevel;
+    if (options.includes('SELF_ONLY')) return 'SELF_ONLY';
+    return requestedPrivacyLevel || options[0] || 'SELF_ONLY';
+  }
+
+  interactionSettings(creatorInfo) {
+    return {
+      disable_duet: Boolean(creatorInfo?.duet_disabled),
+      disable_comment: Boolean(creatorInfo?.comment_disabled),
+      disable_stitch: Boolean(creatorInfo?.stitch_disabled),
+      brand_content_toggle: false,
+      brand_organic_toggle: false
+    };
+  }
+
+  async publishVideo(account, media, title, privacyLevel, creatorInfo) {
     const filePath = path.resolve(process.cwd(), media.file_path);
     const fileSize = fs.statSync(filePath).size;
     const chunkSize = fileSize <= MAX_CHUNK_SIZE ? fileSize : MAX_CHUNK_SIZE;
@@ -89,7 +116,7 @@ class TikTokService extends BasePlatformService {
     let initRes;
     try {
       initRes = await this.client.post(`${API}/post/publish/video/init/`, {
-        post_info: { title, privacy_level: privacyLevel, disable_duet: false, disable_comment: false, disable_stitch: false },
+        post_info: { title, privacy_level: privacyLevel, ...this.interactionSettings(creatorInfo) },
         source_info: { source: 'FILE_UPLOAD', video_size: fileSize, chunk_size: chunkSize, total_chunk_count: totalChunks }
       }, {
         headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json; charset=UTF-8' }
@@ -98,7 +125,7 @@ class TikTokService extends BasePlatformService {
       const code = err.response?.data?.error?.code;
       if (code === 'unaudited_client_can_only_post_to_private_accounts' && privacyLevel !== 'SELF_ONLY') {
         console.warn('[TikTok] App not yet approved — retrying init as SELF_ONLY (sandbox fallback).');
-        return this.publishVideo(account, media, title, 'SELF_ONLY');
+        return this.publishVideo(account, media, title, 'SELF_ONLY', creatorInfo);
       }
       throw err;
     }
@@ -130,7 +157,7 @@ class TikTokService extends BasePlatformService {
     return this.pollStatus(account, publish_id);
   }
 
-  async publishPhoto(account, images, title, privacyLevel) {
+  async publishPhoto(account, images, title, privacyLevel, creatorInfo) {
     if (!images.length) this.permanent('No images found for TikTok photo post.');
     const photoImages = images.slice(0, 35).map((img) => {
       const url = toSignedPublicUrl(img.file_path);
@@ -141,7 +168,7 @@ class TikTokService extends BasePlatformService {
     let res;
     try {
       res = await this.client.post(`${API}/post/publish/content/init/`, {
-        post_info: { title, privacy_level: privacyLevel, disable_comment: false, auto_add_music: true, photo_cover_index: 0 },
+        post_info: { title, privacy_level: privacyLevel, disable_comment: Boolean(creatorInfo?.comment_disabled), auto_add_music: true, photo_cover_index: 0 },
         source_info: { source: 'PULL_FROM_URL', photo_images: photoImages, photo_cover_index: 0, media_type: 'PHOTO' }
       }, {
         headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json; charset=UTF-8' }
@@ -150,7 +177,7 @@ class TikTokService extends BasePlatformService {
       const code = err.response?.data?.error?.code;
       if (code === 'unaudited_client_can_only_post_to_private_accounts' && privacyLevel !== 'SELF_ONLY') {
         console.warn('[TikTok] App not yet approved — retrying photo init as SELF_ONLY (sandbox fallback).');
-        return this.publishPhoto(account, images, title, 'SELF_ONLY');
+        return this.publishPhoto(account, images, title, 'SELF_ONLY', creatorInfo);
       }
       throw err;
     }
