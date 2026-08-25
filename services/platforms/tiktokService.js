@@ -72,6 +72,21 @@ class TikTokService extends BasePlatformService {
     return res.data.data || null;
   }
 
+  normalizeError(error) {
+    const status = error.response?.status;
+    const data = error.response?.data;
+    const apiError = data?.error || {};
+    const code = apiError.code;
+    const message = apiError.message || error.message || 'TikTok API error';
+    const retryable = !status || status === 429 || status >= 500 || code === 'internal_error';
+
+    return {
+      retryable,
+      message: code ? `${code}: ${message}` : message,
+      response: data || null
+    };
+  }
+
   // ── Publishing ───────────────────────────────────────────────────────────
 
   async publish({ account, post, media, mediaItems }) {
@@ -81,6 +96,12 @@ class TikTokService extends BasePlatformService {
     const title = (payload.title || post.caption || '').slice(0, 2200).trim() || 'Untitled';
     const creatorInfo = await this.getCreatorInfo(freshAccount.access_token);
     const privacyLevel = this.resolvePrivacyLevel(payload.privacyLevel, creatorInfo);
+    console.log('[TikTok] selected publish settings ->', JSON.stringify({
+      testMode: env.tiktok.testMode,
+      requestedPrivacyLevel: payload.privacyLevel || null,
+      privacyLevel,
+      titleLength: title.length
+    }, null, 2));
 
     const videos = items.filter((m) => m.mime_type.startsWith('video/'));
     const images = items.filter((m) => !m.mime_type.startsWith('video/'));
@@ -112,16 +133,20 @@ class TikTokService extends BasePlatformService {
     const fileSize = fs.statSync(filePath).size;
     const chunkSize = fileSize <= MAX_CHUNK_SIZE ? fileSize : MAX_CHUNK_SIZE;
     const totalChunks = Math.ceil(fileSize / chunkSize);
+    const initPayload = {
+      post_info: { title, privacy_level: privacyLevel, ...this.interactionSettings(creatorInfo) },
+      source_info: { source: 'FILE_UPLOAD', video_size: fileSize, chunk_size: chunkSize, total_chunk_count: totalChunks }
+    };
 
     let initRes;
     try {
-      initRes = await this.client.post(`${API}/post/publish/video/init/`, {
-        post_info: { title, privacy_level: privacyLevel, ...this.interactionSettings(creatorInfo) },
-        source_info: { source: 'FILE_UPLOAD', video_size: fileSize, chunk_size: chunkSize, total_chunk_count: totalChunks }
-      }, {
+      console.log('[TikTok] video/init payload ->', JSON.stringify(initPayload, null, 2));
+      initRes = await this.client.post(`${API}/post/publish/video/init/`, initPayload, {
         headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json; charset=UTF-8' }
       });
+      console.log('[TikTok] video/init response ->', JSON.stringify(initRes.data, null, 2));
     } catch (err) {
+      console.error('[TikTok] video/init error ->', JSON.stringify(err.response?.data || { message: err.message }, null, 2));
       const code = err.response?.data?.error?.code;
       if (code === 'unaudited_client_can_only_post_to_private_accounts' && privacyLevel !== 'SELF_ONLY') {
         console.warn('[TikTok] App not yet approved — retrying init as SELF_ONLY (sandbox fallback).');
@@ -140,15 +165,24 @@ class TikTokService extends BasePlatformService {
         const size = end - start + 1;
         const buffer = Buffer.alloc(size);
         fs.readSync(fd, buffer, 0, size, start);
-        await this.client.put(upload_url, buffer, {
-          headers: {
-            'Content-Type': media.mime_type,
-            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-            'Content-Length': size
-          },
-          maxBodyLength: Infinity,
-          timeout: 0
-        });
+        try {
+          await this.client.put(upload_url, buffer, {
+            headers: {
+              'Content-Type': media.mime_type,
+              'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+              'Content-Length': size
+            },
+            maxBodyLength: Infinity,
+            timeout: 0
+          });
+          console.log(`[TikTok] uploaded video chunk ${i + 1}/${totalChunks} bytes ${start}-${end}/${fileSize}`);
+        } catch (err) {
+          console.error('[TikTok] video upload error ->', JSON.stringify(err.response?.data || {
+            status: err.response?.status || null,
+            message: err.message
+          }, null, 2));
+          throw err;
+        }
       }
     } finally {
       fs.closeSync(fd);
@@ -164,16 +198,23 @@ class TikTokService extends BasePlatformService {
       if (!url) this.permanent('TikTok photo posting requires APP_URL or PUBLIC_MEDIA_BASE_URL to be set.');
       return url;
     });
+    const initPayload = {
+      post_info: { title, privacy_level: privacyLevel, disable_comment: Boolean(creatorInfo?.comment_disabled), auto_add_music: true, photo_cover_index: 0 },
+      source_info: { source: 'PULL_FROM_URL', photo_images: photoImages, photo_cover_index: 0, media_type: 'PHOTO' }
+    };
 
     let res;
     try {
-      res = await this.client.post(`${API}/post/publish/content/init/`, {
-        post_info: { title, privacy_level: privacyLevel, disable_comment: Boolean(creatorInfo?.comment_disabled), auto_add_music: true, photo_cover_index: 0 },
-        source_info: { source: 'PULL_FROM_URL', photo_images: photoImages, photo_cover_index: 0, media_type: 'PHOTO' }
-      }, {
+      console.log('[TikTok] content/init payload ->', JSON.stringify({
+        ...initPayload,
+        source_info: { ...initPayload.source_info, photo_images: photoImages.map((url) => url.replace(/\?.*$/, '?...')) }
+      }, null, 2));
+      res = await this.client.post(`${API}/post/publish/content/init/`, initPayload, {
         headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json; charset=UTF-8' }
       });
+      console.log('[TikTok] content/init response ->', JSON.stringify(res.data, null, 2));
     } catch (err) {
+      console.error('[TikTok] content/init error ->', JSON.stringify(err.response?.data || { message: err.message }, null, 2));
       const code = err.response?.data?.error?.code;
       if (code === 'unaudited_client_can_only_post_to_private_accounts' && privacyLevel !== 'SELF_ONLY') {
         console.warn('[TikTok] App not yet approved — retrying photo init as SELF_ONLY (sandbox fallback).');
@@ -191,6 +232,7 @@ class TikTokService extends BasePlatformService {
       const res = await this.client.post(`${API}/post/publish/status/fetch/`, { publish_id: publishId }, {
         headers: { Authorization: `Bearer ${account.access_token}`, 'Content-Type': 'application/json; charset=UTF-8' }
       });
+      console.log('[TikTok] status/fetch response ->', JSON.stringify(res.data, null, 2));
       const status = res.data.data?.status;
       if (status === 'PUBLISH_COMPLETE') return { platform: 'tiktok', remotePostId: publishId, raw: res.data };
       if (status === 'FAILED' || status === 'SPAM') this.permanent(`TikTok publish failed: ${status}`, { apiResponse: res.data });
