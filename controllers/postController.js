@@ -12,6 +12,7 @@ const { cropVideo, cropImage, probe, screenshot } = require('../services/media/m
 const { updateStatus: updateMediaStatus } = require('../models/mediaModel');
 const { relativeUploadPath } = require('../services/storage/localStorageService');
 const AppError = require('../utils/AppError');
+const { DEFAULT_WHATSAPP_CHANNEL_CAPTION } = require('../utils/whatsappDefaults');
 
 const postSchema = Joi.object({
   mediaIds: Joi.alternatives().try(
@@ -156,7 +157,7 @@ async function createPost(req, res, next) {
           destinationUrl: value.pinterestDestinationUrl
         },
         whatsapp_channel: {
-          caption: value.whatsappCaption || selectedWhatsApp?.metadata_json?.defaultCaption || value.caption,
+          caption: value.whatsappCaption || selectedWhatsApp?.metadata_json?.defaultCaption || value.caption || DEFAULT_WHATSAPP_CHANNEL_CAPTION,
           link: value.whatsappLink || ''
         }
       },

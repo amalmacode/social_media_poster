@@ -7,6 +7,7 @@ process.env.APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
 const whatsapp = require('../services/platforms/whatsappChannelService');
 const { getPlatformService } = require('../services/platforms/platformRegistry');
+const { DEFAULT_WHATSAPP_CHANNEL_CAPTION } = require('../utils/whatsappDefaults');
 
 async function testRegistry() {
   assert.strictEqual(getPlatformService('whatsapp_channel'), whatsapp);
@@ -79,10 +80,26 @@ async function testNoMediaFailsToPrepare() {
   );
 }
 
+async function testDefaultCaptionFallback() {
+  const result = await whatsapp.publish({
+    post: { caption: '', platform_payloads: {} },
+    media: {
+      id: 'media-3',
+      file_path: 'uploads/user/image.png',
+      original_name: 'image.png',
+      mime_type: 'image/png'
+    },
+    mediaItems: []
+  });
+
+  assert.strictEqual(result.raw.caption, DEFAULT_WHATSAPP_CHANNEL_CAPTION);
+}
+
 (async () => {
   await testRegistry();
   await testPreparationResult();
   await testCaptionFallback();
   await testNoMediaFailsToPrepare();
+  await testDefaultCaptionFallback();
   console.log('WhatsApp Channel assisted publishing tests passed.');
 })();

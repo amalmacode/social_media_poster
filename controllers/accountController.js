@@ -6,6 +6,7 @@ const pinterestService = require('../services/platforms/pinterestService');
 const youtubeService = require('../services/platforms/youtubeService');
 const tiktokService = require('../services/platforms/tiktokService');
 const { env } = require('../config/env');
+const { DEFAULT_WHATSAPP_CHANNEL_CAPTION } = require('../utils/whatsappDefaults');
 
 function normalizeWhatsAppChannelUrl(url) {
   const value = (url || '').trim();
@@ -25,7 +26,7 @@ async function index(req, res, next) {
       accountModel.listByUser(req.user.id),
       brandAccountModel.listByUser(req.user.id)
     ]);
-    res.render('accounts/index', { title: 'Connected accounts', accounts, brandAccounts });
+    res.render('accounts/index', { title: 'Connected accounts', accounts, brandAccounts, defaultWhatsAppCaption: DEFAULT_WHATSAPP_CHANNEL_CAPTION });
   } catch (error) {
     next(error);
   }
@@ -459,7 +460,7 @@ async function addWhatsAppChannel(req, res, next) {
   try {
     const channelName = (req.body.channelName || '').trim();
     const channelUrl = normalizeWhatsAppChannelUrl(req.body.channelUrl);
-    const defaultCaption = (req.body.defaultCaption || '').trim();
+    const defaultCaption = (req.body.defaultCaption || DEFAULT_WHATSAPP_CHANNEL_CAPTION).trim();
 
     if (!channelName) {
       req.flash('error', 'WhatsApp Channel name is required.');
