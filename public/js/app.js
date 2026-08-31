@@ -432,23 +432,40 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => {
       const data = payload(panel);
       const text = composedText(data);
       const channelUrl = data.channelUrl || data.channel_url || '';
+      const media = Array.isArray(data.media) ? data.media : [];
       if (!channelUrl) {
         showToast('No WhatsApp Channel link is saved for this target.', 'warning');
         return;
       }
 
+      let sharedPreparedMedia = false;
       try {
         await copyText(text);
       } catch (err) {
         showToast('Could not copy the caption automatically. Copy it manually before posting.', 'warning');
       }
 
+      if (navigator.share && navigator.canShare && media.length) {
+        try {
+          const first = await fileFromMedia(media[0]);
+          if (first && navigator.canShare({ files: [first] })) {
+            await navigator.share({ text, files: [first] });
+            sharedPreparedMedia = true;
+          }
+        } catch (err) {
+          showToast('Media could not be sent to the share sheet. Use the download button if WhatsApp asks for the file.', 'warning');
+        }
+      }
+
       const opened = window.open(channelUrl, '_blank', 'noopener,noreferrer');
       await markOpened(panel);
-      showToast(opened
-        ? 'Channel opened. Paste the caption, attach the media, and publish manually.'
-        : 'Caption prepared, but the popup was blocked. Open the Channel link manually.',
-        opened ? 'info' : 'warning');
+      if (opened && sharedPreparedMedia) {
+        showToast('Prepared post shared, then Channel opened. Confirm the update manually inside WhatsApp.', 'info');
+      } else if (opened) {
+        showToast('Caption copied and Channel opened. Attach/download the media, then publish manually.', 'info');
+      } else {
+        showToast('Caption prepared, but the popup was blocked. Open the Channel link manually.', 'warning');
+      }
     });
 
     shareBtn?.addEventListener('click', async () => {

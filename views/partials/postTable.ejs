@@ -108,7 +108,7 @@
                           <% } %>
                           <p class="line-clamp-2 text-black/55"><%= whatsappCaption || 'No caption' %></p>
                           <% if (whatsappChannelUrl) { %>
-                            <p class="text-black/45">Prepared for <span class="font-medium"><%= whatsappChannelName || 'your WhatsApp Channel' %></span>. Open the Channel, then confirm the update manually inside WhatsApp.</p>
+                            <p class="text-black/45">Prepared for <span class="font-medium"><%= whatsappChannelName || 'your WhatsApp Channel' %></span>. The app can copy/share the prepared media and caption, then open the Channel for manual confirmation.</p>
                           <% } else { %>
                             <p class="text-black/45">Select your Channel and confirm the update inside WhatsApp. Opening WhatsApp does not mark this as published.</p>
                           <% } %>
@@ -118,7 +118,7 @@
                               <a href="/<%= m.file_path %>" download class="rounded border border-black/10 px-2 py-1 font-medium text-black/60 hover:bg-white">Download <%= idx + 1 %></a>
                             <% }) %>
                             <% if (whatsappChannelUrl) { %>
-                              <button type="button" class="rounded border border-teal-200 px-2 py-1 font-medium text-teal-700 hover:bg-white" data-whatsapp-open-channel>Open Channel</button>
+                              <button type="button" class="rounded border border-teal-200 px-2 py-1 font-medium text-teal-700 hover:bg-white" data-whatsapp-open-channel>Prepare & Open Channel</button>
                             <% } %>
                             <button type="button" class="rounded border border-teal-200 px-2 py-1 font-medium text-teal-700 hover:bg-white" data-whatsapp-share>Open/Share to WhatsApp</button>
                             <% if (t.status !== 'published_manually') { %>
