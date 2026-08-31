@@ -17,7 +17,7 @@ class WhatsAppChannelService extends BasePlatformService {
     const payload = post.platform_payloads?.whatsapp_channel || {};
     const caption = (payload.caption || post.caption || '').trim();
     const channelUrl = (account?.metadata_json?.channelUrl || '').trim();
-    const link = (payload.link || channelUrl || '').trim();
+    const link = (payload.link || '').trim();
     const preparedAt = new Date().toISOString();
 
     return {

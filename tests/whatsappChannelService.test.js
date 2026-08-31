@@ -14,6 +14,10 @@ async function testRegistry() {
 
 async function testPreparationResult() {
   const result = await whatsapp.publish({
+    account: {
+      username: 'Brand Channel',
+      metadata_json: { channelUrl: 'https://whatsapp.com/channel/0029VaaYG609cDDaAS6tpO18' }
+    },
     post: {
       caption: 'General caption',
       platform_payloads: {
@@ -37,6 +41,8 @@ async function testPreparationResult() {
   assert.strictEqual(result.status, 'ready_to_publish');
   assert.strictEqual(result.remotePostId, null);
   assert.strictEqual(result.raw.requires_manual_confirmation, true);
+  assert.strictEqual(result.raw.channel_name, 'Brand Channel');
+  assert.strictEqual(result.raw.channel_url, 'https://whatsapp.com/channel/0029VaaYG609cDDaAS6tpO18');
   assert.strictEqual(result.raw.caption, 'WhatsApp caption');
   assert.strictEqual(result.raw.link, 'https://example.com/product');
   assert.strictEqual(result.raw.media.length, 1);

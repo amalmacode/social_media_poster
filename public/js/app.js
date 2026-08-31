@@ -416,6 +416,7 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => {
   panels.forEach((panel) => {
     const copyBtn = panel.querySelector('[data-whatsapp-copy]');
     const shareBtn = panel.querySelector('[data-whatsapp-share]');
+    const openChannelBtn = panel.querySelector('[data-whatsapp-open-channel]');
 
     copyBtn?.addEventListener('click', async () => {
       const text = composedText(payload(panel));
@@ -425,6 +426,29 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => {
       } catch (err) {
         showToast(err.message || 'Clipboard unavailable. Select and copy the caption manually.', 'warning');
       }
+    });
+
+    openChannelBtn?.addEventListener('click', async () => {
+      const data = payload(panel);
+      const text = composedText(data);
+      const channelUrl = data.channelUrl || data.channel_url || '';
+      if (!channelUrl) {
+        showToast('No WhatsApp Channel link is saved for this target.', 'warning');
+        return;
+      }
+
+      try {
+        await copyText(text);
+      } catch (err) {
+        showToast('Could not copy the caption automatically. Copy it manually before posting.', 'warning');
+      }
+
+      const opened = window.open(channelUrl, '_blank', 'noopener,noreferrer');
+      await markOpened(panel);
+      showToast(opened
+        ? 'Channel opened. Paste the caption, attach the media, and publish manually.'
+        : 'Caption prepared, but the popup was blocked. Open the Channel link manually.',
+        opened ? 'info' : 'warning');
     });
 
     shareBtn?.addEventListener('click', async () => {

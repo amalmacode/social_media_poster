@@ -64,6 +64,8 @@
                     const firstWhatsappMedia = whatsappMedia[0] || null;
                     const whatsappCaption = whatsappRaw.caption || '';
                     const whatsappLink = whatsappRaw.link || '';
+                    const whatsappChannelUrl = whatsappRaw.channel_url || '';
+                    const whatsappChannelName = whatsappRaw.channel_name || '';
                   %>
                   <div>
                     <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium capitalize <%= chipClass %>">
@@ -90,7 +92,7 @@
                       <details class="mt-1 rounded-md border border-teal-100 bg-teal-50/40 p-2 text-xs text-black/70">
                         <summary class="cursor-pointer font-medium text-teal-700">WhatsApp assisted actions</summary>
                         <div class="mt-2 space-y-2" data-whatsapp-panel data-target-id="<%= t.id %>" data-open-url="/posts/targets/<%= t.id %>/whatsapp/opened">
-                          <script type="application/json" data-whatsapp-payload><%- JSON.stringify({ caption: whatsappCaption, link: whatsappLink, media: whatsappMedia }).replace(/</g, '\\u003c') %></script>
+                          <script type="application/json" data-whatsapp-payload><%- JSON.stringify({ caption: whatsappCaption, link: whatsappLink, channelUrl: whatsappChannelUrl, channelName: whatsappChannelName, media: whatsappMedia }).replace(/</g, '\\u003c') %></script>
                           <% if (firstWhatsappMedia) { %>
                             <div class="flex items-center gap-2">
                               <% if (firstWhatsappMedia.thumbnail_path) { %>
@@ -105,12 +107,19 @@
                             </div>
                           <% } %>
                           <p class="line-clamp-2 text-black/55"><%= whatsappCaption || 'No caption' %></p>
-                          <p class="text-black/45">Select your Channel and confirm the update inside WhatsApp. Opening WhatsApp does not mark this as published.</p>
+                          <% if (whatsappChannelUrl) { %>
+                            <p class="text-black/45">Prepared for <span class="font-medium"><%= whatsappChannelName || 'your WhatsApp Channel' %></span>. Open the Channel, then confirm the update manually inside WhatsApp.</p>
+                          <% } else { %>
+                            <p class="text-black/45">Select your Channel and confirm the update inside WhatsApp. Opening WhatsApp does not mark this as published.</p>
+                          <% } %>
                           <div class="flex flex-wrap gap-1.5">
                             <button type="button" class="rounded border border-teal-200 px-2 py-1 font-medium text-teal-700 hover:bg-white" data-whatsapp-copy>Copy caption</button>
                             <% whatsappMedia.forEach(function(m, idx) { %>
                               <a href="/<%= m.file_path %>" download class="rounded border border-black/10 px-2 py-1 font-medium text-black/60 hover:bg-white">Download <%= idx + 1 %></a>
                             <% }) %>
+                            <% if (whatsappChannelUrl) { %>
+                              <button type="button" class="rounded border border-teal-200 px-2 py-1 font-medium text-teal-700 hover:bg-white" data-whatsapp-open-channel>Open Channel</button>
+                            <% } %>
                             <button type="button" class="rounded border border-teal-200 px-2 py-1 font-medium text-teal-700 hover:bg-white" data-whatsapp-share>Open/Share to WhatsApp</button>
                             <% if (t.status !== 'published_manually') { %>
                               <form method="post" action="/posts/targets/<%= t.id %>/whatsapp/mark-published" data-confirm="Mark this WhatsApp Channel post as manually published?">

@@ -157,12 +157,12 @@ async function createPost(req, res, next) {
         },
         whatsapp_channel: {
           caption: value.whatsappCaption || selectedWhatsApp?.metadata_json?.defaultCaption || value.caption,
-          link: value.whatsappLink || selectedWhatsApp?.metadata_json?.channelUrl || ''
+          link: value.whatsappLink || ''
         }
       },
       targets: [
         ...selected.map((account) => ({ platform: account.platform, connectedAccountId: account.id })),
-        ...(includeWhatsAppChannel ? [{ platform: 'whatsapp_channel', connectedAccountId: null }] : [])
+        ...(includeWhatsAppChannel && !selectedWhatsApp ? [{ platform: 'whatsapp_channel', connectedAccountId: null }] : [])
       ]
     });
 
