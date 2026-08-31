@@ -21,8 +21,11 @@ const postSchema = Joi.object({
   caption: Joi.string().allow('').max(5000),
   publishMode: Joi.string().valid('now', 'schedule').required(),
   scheduledFor: Joi.when('publishMode', { is: 'schedule', then: Joi.date().iso().greater('now').required(), otherwise: Joi.allow('', null) }),
-  accounts: Joi.alternatives().try(Joi.array().items(Joi.string().uuid()), Joi.string().uuid()).required(),
+  accounts: Joi.alternatives().try(Joi.array().items(Joi.string().uuid()), Joi.string().uuid()).optional(),
   brandAccountIds: Joi.alternatives().try(Joi.array().items(Joi.string().uuid()), Joi.string().uuid()).optional(),
+  whatsappChannel: Joi.string().valid('1').optional(),
+  whatsappCaption: Joi.string().allow('').max(5000),
+  whatsappLink: Joi.string().allow('').uri().optional(),
   youtubeTitle: Joi.string().allow('').max(100),
   tiktokTitle: Joi.string().allow('').max(2200),
   tiktokPrivacy: Joi.string().valid('PUBLIC_TO_EVERYONE', 'FOLLOWER_OF_CREATOR', 'MUTUAL_FOLLOW_FRIENDS', 'SELF_ONLY').default('PUBLIC_TO_EVERYONE'),
@@ -56,6 +59,8 @@ async function newPost(req, res, next) {
           youtube: pp.youtube || {},
           tiktok: pp.tiktok || {},
           pinterest: pp.pinterest || {},
+          whatsapp_channel: pp.whatsapp_channel || {},
+          whatsappChannel: source.targets.some((t) => t.platform === 'whatsapp_channel'),
           watermark: !!pp.watermark
         };
       }
@@ -125,11 +130,15 @@ async function createPost(req, res, next) {
     } : null;
     const individualIds = Array.isArray(value.accounts) ? value.accounts : [value.accounts].filter(Boolean);
     const allAccountIds = [...new Set([...brandAccountIds, ...individualIds])];
-    if (!allAccountIds.length) throw new AppError('Choose at least one brand account or platform connection.', 400);
+    const includeWhatsAppChannel = value.whatsappChannel === '1';
+    if (!allAccountIds.length && !includeWhatsAppChannel) {
+      throw new AppError('Choose at least one brand account, platform connection, or WhatsApp Channel assisted destination.', 400);
+    }
 
     const accounts = await accountModel.listByUser(req.user.id);
     const selected = accounts.filter((account) => allAccountIds.includes(account.id));
-    if (!selected.length) throw new AppError('Choose at least one connected account.', 400);
+    if (!selected.length && !includeWhatsAppChannel) throw new AppError('Choose at least one connected account.', 400);
+    const selectedWhatsApp = selected.find((account) => account.platform === 'whatsapp_channel');
 
     const post = await postModel.create({
       userId: req.user.id,
@@ -145,9 +154,16 @@ async function createPost(req, res, next) {
           title: value.pinterestTitle,
           description: value.pinterestDescription || value.caption,
           destinationUrl: value.pinterestDestinationUrl
+        },
+        whatsapp_channel: {
+          caption: value.whatsappCaption || selectedWhatsApp?.metadata_json?.defaultCaption || value.caption,
+          link: value.whatsappLink || selectedWhatsApp?.metadata_json?.channelUrl || ''
         }
       },
-      targets: selected.map((account) => ({ platform: account.platform, connectedAccountId: account.id }))
+      targets: [
+        ...selected.map((account) => ({ platform: account.platform, connectedAccountId: account.id })),
+        ...(includeWhatsAppChannel ? [{ platform: 'whatsapp_channel', connectedAccountId: null }] : [])
+      ]
     });
 
     const { enqueuePost } = require('../queues/publishQueue');
@@ -199,6 +215,57 @@ async function deletePinterestPin(req, res, next) {
       remote_deleted_by: req.user.id
     });
     req.flash('success', 'Pinterest Pin deleted.');
+    res.redirect(req.get('Referer') || '/history');
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function markWhatsAppOpened(req, res, next) {
+  try {
+    const target = await postModel.findTargetForUser(req.params.targetId, req.user.id);
+    if (!target || target.platform !== 'whatsapp_channel') throw new AppError('WhatsApp Channel target not found.', 404);
+    if (!['ready_to_publish', 'opened_in_whatsapp'].includes(target.status)) {
+      throw new AppError('This WhatsApp Channel post is not ready for manual publishing.', 400);
+    }
+
+    const apiResponse = {
+      ...(target.api_response || {}),
+      opened_in_whatsapp_at: new Date().toISOString()
+    };
+    await postModel.updateTargetStatus(target.id, {
+      status: 'opened_in_whatsapp',
+      apiResponse
+    });
+    await postModel.refreshPostRollupStatus(target.post_id);
+    res.json({ ok: true });
+  } catch (error) {
+    if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(error.statusCode || 500).json({ error: error.message || 'Unable to update WhatsApp status.' });
+    }
+    next(error);
+  }
+}
+
+async function markWhatsAppPublished(req, res, next) {
+  try {
+    const target = await postModel.findTargetForUser(req.params.targetId, req.user.id);
+    if (!target || target.platform !== 'whatsapp_channel') throw new AppError('WhatsApp Channel target not found.', 404);
+    if (!['ready_to_publish', 'opened_in_whatsapp', 'published_manually'].includes(target.status)) {
+      throw new AppError('This WhatsApp Channel post is not ready for manual confirmation.', 400);
+    }
+
+    const apiResponse = {
+      ...(target.api_response || {}),
+      published_manually_at: new Date().toISOString(),
+      published_manually_by: req.user.id
+    };
+    await postModel.updateTargetStatus(target.id, {
+      status: 'published_manually',
+      apiResponse
+    });
+    await postModel.refreshPostRollupStatus(target.post_id);
+    req.flash('success', 'WhatsApp Channel marked as manually published.');
     res.redirect(req.get('Referer') || '/history');
   } catch (error) {
     next(error);
@@ -492,6 +559,12 @@ async function updatePost(req, res, next) {
           description: payload.pinterestDescription || '',
           destinationUrl: payload.pinterestDestinationUrl || ''
         }
+      } : {}),
+      ...(payload.whatsappCaption !== undefined || payload.whatsappLink !== undefined ? {
+        whatsapp_channel: {
+          caption: payload.whatsappCaption || caption || '',
+          link: payload.whatsappLink || ''
+        }
       } : {})
     };
     const wasFailed = (await postModel.findWithTargets(req.params.id))?.status === 'failed';
@@ -522,4 +595,4 @@ async function updatePost(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, deletePinterestPin, history, scheduled, reschedulePost, cropMedia, cropImageMedia, createFolder, deleteFolder, moveMediaToFolder, editPost, updatePost };
+module.exports = { newPost, uploadMedia, deleteMedia, createPost, deletePost, deletePinterestPin, markWhatsAppOpened, markWhatsAppPublished, history, scheduled, reschedulePost, cropMedia, cropImageMedia, createFolder, deleteFolder, moveMediaToFolder, editPost, updatePost };

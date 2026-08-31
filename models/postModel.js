@@ -128,13 +128,47 @@ async function updatePostStatus(postId, status) {
   );
 }
 
+async function refreshPostRollupStatus(postId) {
+  const { rows } = await query(
+    `WITH totals AS (
+       SELECT
+         COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE status IN ('success', 'published_manually'))::int AS completed,
+         COUNT(*) FILTER (WHERE status IN ('ready_to_publish', 'opened_in_whatsapp'))::int AS manual_ready,
+         COUNT(*) FILTER (WHERE status IN ('failed', 'failed_to_prepare'))::int AS failed,
+         COUNT(*) FILTER (WHERE status = 'processing')::int AS processing,
+         COUNT(*) FILTER (WHERE status = 'pending')::int AS pending
+       FROM post_platforms
+       WHERE post_id = $1
+     ), next_status AS (
+       SELECT CASE
+         WHEN processing > 0 THEN 'processing'::post_status
+         WHEN failed > 0 AND (completed > 0 OR manual_ready > 0) THEN 'partial_success'::post_status
+         WHEN failed > 0 THEN 'failed'::post_status
+         WHEN pending > 0 THEN 'pending'::post_status
+         WHEN manual_ready > 0 THEN 'manual_action_required'::post_status
+         ELSE 'success'::post_status
+       END AS status
+       FROM totals
+     )
+     UPDATE posts p
+     SET status = next_status.status,
+       published_at = CASE WHEN next_status.status IN ('success'::post_status, 'partial_success'::post_status) THEN COALESCE(p.published_at, now()) ELSE p.published_at END
+     FROM next_status
+     WHERE p.id = $1
+     RETURNING p.*`,
+    [postId]
+  );
+  return rows[0] || null;
+}
+
 async function updateTargetStatus(id, patch) {
   const { rows } = await query(
     `UPDATE post_platforms
      SET status = $2::publish_status, remote_post_id = COALESCE($3, remote_post_id), error_message = $4,
        api_response = COALESCE($5, api_response), failed_payload = COALESCE($6, failed_payload),
        retry_count = retry_count + $7,
-       published_at = CASE WHEN $2::publish_status = 'success'::publish_status THEN now() ELSE published_at END
+       published_at = CASE WHEN $2::publish_status IN ('success'::publish_status, 'published_manually'::publish_status) THEN now() ELSE published_at END
      WHERE id = $1 RETURNING *`,
     [id, patch.status, patch.remotePostId || null, patch.errorMessage || null, patch.apiResponse || null, patch.failedPayload || null, patch.incrementRetry ? 1 : 0]
   );
@@ -187,7 +221,7 @@ async function findTargetForUser(targetId, userId) {
     `SELECT pp.*, p.user_id, ca.access_token, ca.refresh_token, ca.expires_at, ca.metadata_json, ca.username
      FROM post_platforms pp
      JOIN posts p ON p.id = pp.post_id
-     JOIN connected_accounts ca ON ca.id = pp.connected_account_id
+     LEFT JOIN connected_accounts ca ON ca.id = pp.connected_account_id
      WHERE pp.id = $1 AND p.user_id = $2`,
     [targetId, userId]
   );
@@ -211,4 +245,4 @@ async function remove(id, userId) {
   return rows[0] || null;
 }
 
-module.exports = { create, listByUser, findWithTargets, findTargetForUser, updatePostStatus, updateTargetStatus, markRemoteDeleted, dashboardCounts, update, reschedule, resetFailedTargets, remove };
+module.exports = { create, listByUser, findWithTargets, findTargetForUser, updatePostStatus, refreshPostRollupStatus, updateTargetStatus, markRemoteDeleted, dashboardCounts, update, reschedule, resetFailedTargets, remove };

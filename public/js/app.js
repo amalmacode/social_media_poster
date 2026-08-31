@@ -194,6 +194,10 @@ if (mediaGrid) {
       const cb = document.querySelector('input[name="accounts"][value="' + id + '"]');
       if (cb) cb.checked = true;
     });
+    if (pf.whatsappChannel) {
+      const cb = document.querySelector('input[name="whatsappChannel"]');
+      if (cb) cb.checked = true;
+    }
     if (typeof updatePlatformFields === 'function') updatePlatformFields();
     if (!pf.watermark) {
       const wmCb = document.getElementById('apply-watermark-cb');
@@ -228,6 +232,19 @@ if (mediaGrid) {
         showToast('Pinterest destination link must be a valid URL starting with https://', 'error');
         urlInput.focus();
         // Re-enable disabled fields in case user fixes and resubmits
+        document.querySelectorAll('[data-field] :disabled').forEach((el) => { el.disabled = false; });
+        return;
+      }
+    }
+
+    const whatsappActive = !document.querySelector('[data-field="whatsapp_channel"]')?.classList.contains('hidden');
+    if (whatsappActive) {
+      const urlInput = document.querySelector('input[name="whatsappLink"]');
+      const val = (urlInput?.value || '').trim();
+      if (val && !/^https?:\/\/.+/i.test(val)) {
+        e.preventDefault();
+        showToast('WhatsApp link must be a valid URL starting with https://', 'error');
+        urlInput.focus();
         document.querySelectorAll('[data-field] :disabled').forEach((el) => { el.disabled = false; });
         return;
       }
@@ -343,10 +360,122 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => {
   });
 });
 
+// WhatsApp Channel assisted publishing actions. This never marks a post as
+// published; only the explicit server-side "Mark as published" form does that.
+(function () {
+  const panels = document.querySelectorAll('[data-whatsapp-panel]');
+  if (!panels.length) return;
+
+  function csrf() { return window.__csrfToken || ''; }
+
+  function payload(panel) {
+    const node = panel.querySelector('[data-whatsapp-payload]');
+    try { return JSON.parse(node.textContent || '{}'); } catch (_) { return {}; }
+  }
+
+  function composedText(data) {
+    return [data.caption || '', data.link || ''].filter(Boolean).join('\n\n');
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand('copy');
+    textarea.remove();
+    if (!ok) throw new Error('Clipboard permission denied.');
+    return true;
+  }
+
+  async function markOpened(panel) {
+    if (!panel.dataset.openUrl) return;
+    try {
+      await fetch(panel.dataset.openUrl, {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrf(), 'X-Requested-With': 'XMLHttpRequest' }
+      });
+    } catch (_) { /* best-effort status update */ }
+  }
+
+  async function fileFromMedia(media) {
+    if (!media || !media.file_path) return null;
+    const response = await fetch('/' + media.file_path, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Media download failed.');
+    const blob = await response.blob();
+    return new File([blob], media.original_name || 'whatsapp-media', { type: media.mime_type || blob.type });
+  }
+
+  panels.forEach((panel) => {
+    const copyBtn = panel.querySelector('[data-whatsapp-copy]');
+    const shareBtn = panel.querySelector('[data-whatsapp-share]');
+
+    copyBtn?.addEventListener('click', async () => {
+      const text = composedText(payload(panel));
+      try {
+        await copyText(text);
+        showToast('WhatsApp caption copied.', 'success');
+      } catch (err) {
+        showToast(err.message || 'Clipboard unavailable. Select and copy the caption manually.', 'warning');
+      }
+    });
+
+    shareBtn?.addEventListener('click', async () => {
+      const data = payload(panel);
+      const text = composedText(data);
+      const media = Array.isArray(data.media) ? data.media : [];
+
+      try {
+        if (navigator.share) {
+          const files = [];
+          if (navigator.canShare && media.length) {
+            try {
+              const first = await fileFromMedia(media[0]);
+              if (first && navigator.canShare({ files: [first] })) files.push(first);
+            } catch (err) {
+              showToast('Media could not be shared directly. Download it from the prepared panel.', 'warning');
+            }
+          }
+
+          if (files.length) {
+            await navigator.share({ text, files });
+            await markOpened(panel);
+            showToast('Share sheet opened. Choose your Channel and publish manually.', 'info');
+            return;
+          }
+
+          await navigator.share({ text });
+          await markOpened(panel);
+          showToast('Share sheet opened. Choose your Channel and publish manually.', 'info');
+          return;
+        }
+
+        await copyText(text);
+        const opened = window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer');
+        await markOpened(panel);
+        showToast(opened
+          ? 'Caption copied. WhatsApp opened; choose your Channel and publish manually.'
+          : 'Caption copied. Popup blocked, so open WhatsApp manually and paste it.',
+          opened ? 'info' : 'warning');
+      } catch (err) {
+        showToast(err.message || 'Could not open WhatsApp. Copy the caption and download the media manually.', 'error');
+      }
+    });
+  });
+})();
+
 // Platform-specific fields: show when a matching platform account or brand account is selected
 function updatePlatformFields() {
   const active = new Set();
   document.querySelectorAll('input[name="accounts"]:checked').forEach((i) => active.add(i.dataset.platform));
+  document.querySelectorAll('input[name="whatsappChannel"]:checked').forEach((i) => active.add(i.dataset.platform));
   document.querySelectorAll('input[name="brandAccountIds"]:checked').forEach((i) => {
     (i.dataset.platforms || '').split(',').filter(Boolean).forEach((p) => active.add(p));
   });
@@ -360,7 +489,7 @@ function updatePlatformFields() {
     wmRow.classList.toggle('hidden', !anyWatermark);
   }
 }
-document.querySelectorAll('input[name="accounts"], input[name="brandAccountIds"]').forEach((input) => {
+document.querySelectorAll('input[name="accounts"], input[name="brandAccountIds"], input[name="whatsappChannel"]').forEach((input) => {
   input.addEventListener('change', updatePlatformFields);
 });
 

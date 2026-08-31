@@ -4,11 +4,13 @@
     facebook:  'bg-blue-600 text-white',
     pinterest: 'bg-[#E60023] text-white',
     youtube:   'bg-[#FF0000] text-white',
-    tiktok:    'bg-[#010101] text-white'
+    tiktok:    'bg-[#010101] text-white',
+    whatsapp_channel: 'bg-[#25D366] text-ink'
   };
   const platformLabel = {
     instagram: 'Instagram', facebook: 'Facebook Page',
-    pinterest: 'Pinterest', youtube: 'YouTube', tiktok: 'TikTok'
+    pinterest: 'Pinterest', youtube: 'YouTube', tiktok: 'TikTok',
+    whatsapp_channel: 'WhatsApp Channel'
   };
 %>
 <div class="space-y-6 max-w-2xl">
@@ -44,7 +46,7 @@
               <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold <%= platformColor[m.platform] || 'bg-black/10 text-black/70' %>">
                 <%= platformLabel[m.platform] || m.platform %>
               </span>
-              <span class="text-sm font-medium">@<%= m.username %></span>
+              <span class="text-sm font-medium"><%= m.platform === 'whatsapp_channel' ? m.username : ('@' + m.username) %></span>
             </div>
             <form method="post" action="/accounts/brands/<%= brand.id %>/members/<%= m.connected_account_id %>?_method=DELETE"
                   data-confirm="Remove this platform from the brand?">
@@ -66,7 +68,7 @@
         <select name="connectedAccountId" class="flex-1 rounded-md border border-black/15 px-3 py-2 text-sm">
           <option value="">— select a connection —</option>
           <% unassigned.forEach(function(a) { %>
-            <option value="<%= a.id %>"><%= platformLabel[a.platform] || a.platform %> — @<%= a.username %></option>
+            <option value="<%= a.id %>"><%= platformLabel[a.platform] || a.platform %> - <%= a.platform === 'whatsapp_channel' ? a.username : ('@' + a.username) %></option>
           <% }) %>
         </select>
         <button class="rounded-md bg-mint px-4 py-2 text-sm font-semibold text-white">Add</button>

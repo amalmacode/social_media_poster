@@ -77,7 +77,10 @@ class TikTokService extends BasePlatformService {
     const data = error.response?.data;
     const apiError = data?.error || {};
     const code = apiError.code;
-    const message = apiError.message || error.message || 'TikTok API error';
+    let message = apiError.message || error.message || 'TikTok API error';
+    if (code === 'unaudited_client_can_only_post_to_private_accounts') {
+      message = 'TikTok app is unaudited. Sandbox Direct Post requires the TikTok account itself to be private and the post privacy to be SELF_ONLY. Make the TikTok account private in the TikTok app, then retry. Public-account/public-post publishing requires TikTok app audit approval.';
+    }
     const retryable = !status || status === 429 || status >= 500 || code === 'internal_error';
 
     return {
@@ -152,6 +155,12 @@ class TikTokService extends BasePlatformService {
         console.warn('[TikTok] App not yet approved — retrying init as SELF_ONLY (sandbox fallback).');
         return this.publishVideo(account, media, title, 'SELF_ONLY', creatorInfo);
       }
+      if (code === 'unaudited_client_can_only_post_to_private_accounts') {
+        this.permanent(
+          'TikTok app is unaudited. Sandbox Direct Post requires the TikTok account itself to be private and the post privacy to be SELF_ONLY. Make the TikTok account private in the TikTok app, then retry. Public-account/public-post publishing requires TikTok app audit approval.',
+          { apiResponse: err.response?.data }
+        );
+      }
       throw err;
     }
 
@@ -219,6 +228,12 @@ class TikTokService extends BasePlatformService {
       if (code === 'unaudited_client_can_only_post_to_private_accounts' && privacyLevel !== 'SELF_ONLY') {
         console.warn('[TikTok] App not yet approved — retrying photo init as SELF_ONLY (sandbox fallback).');
         return this.publishPhoto(account, images, title, 'SELF_ONLY', creatorInfo);
+      }
+      if (code === 'unaudited_client_can_only_post_to_private_accounts') {
+        this.permanent(
+          'TikTok app is unaudited. Sandbox Direct Post requires the TikTok account itself to be private and the post privacy to be SELF_ONLY. Make the TikTok account private in the TikTok app, then retry. Public-account/public-post publishing requires TikTok app audit approval.',
+          { apiResponse: err.response?.data }
+        );
       }
       throw err;
     }

@@ -49,29 +49,36 @@ async function publishPost(postId) {
 
   let success = 0;
   let failed = 0;
+  let manualReady = 0;
   let hasRetryable = false;
 
-  // Skip targets that already succeeded in a previous BullMQ retry attempt
-  const pendingTargets = post.targets.filter((t) => t.status !== 'success');
+  // Skip targets that already reached a terminal non-failed state in a previous retry attempt.
+  const terminalStatuses = new Set(['success', 'ready_to_publish', 'opened_in_whatsapp', 'published_manually']);
+  const pendingTargets = post.targets.filter((t) => !terminalStatuses.has(t.status));
 
   for (const target of pendingTargets) {
     await postModel.updateTargetStatus(target.id, { status: 'processing' });
     try {
-      const account = await accountModel.findForUser(target.connected_account_id, post.user_id);
       const service = getPlatformService(target.platform);
+      const account = target.connected_account_id
+        ? await accountModel.findForUser(target.connected_account_id, post.user_id)
+        : null;
       const result = await service.publish({ account, post, media: publishMedia, mediaItems: publishItems, target });
+      const targetStatus = result.status || 'success';
       await postModel.updateTargetStatus(target.id, {
-        status: 'success',
+        status: targetStatus,
         remotePostId: result.remotePostId,
         apiResponse: result.raw
       });
-      success += 1;
+      if (targetStatus === 'success' || targetStatus === 'published_manually') success += 1;
+      if (targetStatus === 'ready_to_publish' || targetStatus === 'opened_in_whatsapp') manualReady += 1;
     } catch (error) {
       const normalized = error.response ? getPlatformService(target.platform).normalizeError(error) : {
         retryable: Boolean(error.details?.retryable),
         message: error.message,
         response: error.details || null
       };
+      const failedStatus = error.details?.status || 'failed';
       console.error('Platform publish failed', JSON.stringify({
         postId,
         targetId: target.id,
@@ -82,7 +89,7 @@ async function publishPost(postId) {
         response: normalized.response
       }, null, 2));
       await postModel.updateTargetStatus(target.id, {
-        status: 'failed',
+        status: failedStatus,
         errorMessage: normalized.message,
         apiResponse: normalized.response,
         failedPayload: { postId, targetId: target.id },
@@ -98,10 +105,14 @@ async function publishPost(postId) {
     }
   }
 
-  // Count targets that succeeded in earlier retry rounds
-  const prevSuccess = post.targets.length - pendingTargets.length;
+  // Count targets that completed in earlier retry rounds
+  const prevSuccess = post.targets.filter((t) => t.status === 'success' || t.status === 'published_manually').length;
   const totalSuccess = success + prevSuccess;
-  const status = failed === 0 ? 'success' : totalSuccess > 0 ? 'partial_success' : 'failed';
+  const prevManualReady = post.targets.filter((t) => t.status === 'ready_to_publish' || t.status === 'opened_in_whatsapp').length;
+  const totalManualReady = manualReady + prevManualReady;
+  const status = failed === 0
+    ? (totalManualReady > 0 ? 'manual_action_required' : 'success')
+    : (totalSuccess > 0 || totalManualReady > 0 ? 'partial_success' : 'failed');
   await postModel.updatePostStatus(postId, status);
 
   // Clean up temp watermarked files (best-effort — don't let cleanup errors mask publish errors)

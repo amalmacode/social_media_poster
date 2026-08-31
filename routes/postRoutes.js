@@ -29,6 +29,8 @@ router.get('/:id/edit', ensureAuthenticated, postController.editPost);
 router.patch('/:id', ensureAuthenticated, postController.updatePost);
 router.post('/:id/reschedule', ensureAuthenticated, postController.reschedulePost);
 router.post('/targets/:targetId/pinterest/delete-pin', ensureAuthenticated, postController.deletePinterestPin);
+router.post('/targets/:targetId/whatsapp/opened', ensureAuthenticated, postController.markWhatsAppOpened);
+router.post('/targets/:targetId/whatsapp/mark-published', ensureAuthenticated, postController.markWhatsAppPublished);
 router.delete('/:id', ensureAuthenticated, postController.deletePost);
 
 module.exports = router;

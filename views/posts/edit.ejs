@@ -3,6 +3,7 @@
   const yt = pp.youtube || {};
   const tk = pp.tiktok || {};
   const pt = pp.pinterest || {};
+  const wa = pp.whatsapp_channel || {};
 
   const scheduledIso = post.scheduled_for ? new Date(post.scheduled_for).toISOString() : '';
   const scheduledFallback = post.scheduled_for
@@ -39,13 +40,15 @@
           const platformColor = {
             instagram:'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
             facebook:'bg-blue-600 text-white', pinterest:'bg-[#E60023] text-white',
-            youtube:'bg-[#FF0000] text-white', tiktok:'bg-[#010101] text-white'
+            youtube:'bg-[#FF0000] text-white', tiktok:'bg-[#010101] text-white',
+            whatsapp_channel:'bg-[#25D366] text-ink'
           };
         %>
         <% post.targets.forEach(function(t) { %>
           <div>
             <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold <%= platformColor[t.platform] || 'bg-black/10 text-black/70' %>">
-              <%= t.platform %> <span class="opacity-70">@<%= t.username %></span>
+              <%= t.platform === 'whatsapp_channel' ? 'WhatsApp Channel' : t.platform %>
+              <span class="opacity-70"><%= t.platform === 'whatsapp_channel' ? 'Assisted' : ('@' + t.username) %></span>
               <% if (t.status === 'failed') { %><span>✕</span><% } %>
             </span>
             <% if (t.status === 'failed' && t.error_message) { %>
@@ -132,6 +135,24 @@
       <div>
         <label class="block text-xs font-medium text-black/70">Destination link</label>
         <input name="pinterestDestinationUrl" value="<%= pt.destinationUrl || '' %>"
+          class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm" placeholder="https://...">
+      </div>
+    </div>
+    <% } %>
+
+    <!-- WhatsApp Channel fields -->
+    <% if (platforms.includes('whatsapp_channel')) { %>
+    <div class="rounded-md border border-black/10 p-4 space-y-3">
+      <p class="text-sm font-semibold text-teal-700">WhatsApp Channel</p>
+      <p class="text-xs leading-5 text-black/55">Assisted publishing only. The app prepares the media and caption; you still choose your Channel and publish manually in WhatsApp.</p>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Caption override</label>
+        <textarea name="whatsappCaption" rows="3" maxlength="5000"
+          class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm" placeholder="Defaults to main caption"><%= wa.caption || '' %></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-black/70">Optional link</label>
+        <input name="whatsappLink" value="<%= wa.link || '' %>"
           class="mt-1 w-full rounded-md border border-black/15 px-3 py-2 text-sm" placeholder="https://...">
       </div>
     </div>

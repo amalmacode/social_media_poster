@@ -1,5 +1,4 @@
 <div class="rounded-md border border-black/10">
-  <!-- Scroll hint for mobile -->
   <div class="flex items-center gap-1.5 border-b border-black/5 bg-black/[0.02] px-3 py-1.5 text-[10px] text-black/40 md:hidden">
     <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16l-4-4m0 0l4-4m-4 4h18"/></svg>
     Swipe to see all columns
@@ -22,14 +21,15 @@
       <% } %>
       <% posts.forEach(function(post) { %>
         <%
-          const statusLabel = post.status.replace('_', ' ');
+          const statusLabel = post.status.replace(/_/g, ' ');
           const statusClass = {
-            success:         'bg-emerald-50 text-emerald-700',
+            success: 'bg-emerald-50 text-emerald-700',
             partial_success: 'bg-amber-50 text-amber-700',
-            failed:          'bg-red-50 text-red-700',
-            processing:      'bg-blue-50 text-blue-700',
-            pending:         'bg-slate-100 text-slate-600',
-            draft:           'bg-slate-100 text-slate-500'
+            manual_action_required: 'bg-teal-50 text-teal-700',
+            failed: 'bg-red-50 text-red-700',
+            processing: 'bg-blue-50 text-blue-700',
+            pending: 'bg-slate-100 text-slate-600',
+            draft: 'bg-slate-100 text-slate-500'
           }[post.status] || 'bg-slate-100 text-slate-600';
           const targets = post.platform_targets || [];
         %>
@@ -40,27 +40,38 @@
           </td>
           <td class="px-3 py-3">
             <% if (!targets.length) { %>
-              <span class="text-xs text-black/40">—</span>
+              <span class="text-xs text-black/40">-</span>
             <% } else { %>
               <div class="flex flex-col gap-1.5">
                 <% targets.forEach(function(t) { %>
                   <%
-                    const chipClass = t.status === 'success'    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                    : t.status === 'failed'     ? 'border-red-200 bg-red-50 text-red-700'
-                                    : t.status === 'processing' ? 'border-blue-200 bg-blue-50 text-blue-700'
-                                    :                             'border-slate-200 bg-slate-50 text-slate-600';
-                    const icon = t.status === 'success'    ? '✓'
-                               : t.status === 'failed'     ? '✕'
-                               : t.status === 'processing' ? '…'
-                               :                             '·';
+                    const manualStatuses = ['ready_to_publish', 'opened_in_whatsapp', 'published_manually'];
+                    const isWhatsapp = t.platform === 'whatsapp_channel';
+                    const chipClass = t.status === 'success' || t.status === 'published_manually' ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : t.status === 'failed' || t.status === 'failed_to_prepare'   ? 'border-red-200 bg-red-50 text-red-700'
+                                    : t.status === 'processing'                                    ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                    : manualStatuses.includes(t.status)                            ? 'border-teal-200 bg-teal-50 text-teal-700'
+                                    :                                                                'border-slate-200 bg-slate-50 text-slate-600';
+                    const icon = t.status === 'success' || t.status === 'published_manually' ? 'OK'
+                               : t.status === 'failed' || t.status === 'failed_to_prepare'   ? 'X'
+                               : t.status === 'processing'                                    ? '...'
+                               : manualStatuses.includes(t.status)                            ? '!'
+                               :                                                                '-';
+                    const platformLabel = isWhatsapp ? 'WhatsApp Channel' : t.platform;
+                    const targetName = isWhatsapp ? 'Assisted' : (t.username ? '@' + t.username : '');
+                    const whatsappRaw = isWhatsapp ? (t.api_response || {}) : {};
+                    const whatsappMedia = Array.isArray(whatsappRaw.media) ? whatsappRaw.media : [];
+                    const firstWhatsappMedia = whatsappMedia[0] || null;
+                    const whatsappCaption = whatsappRaw.caption || '';
+                    const whatsappLink = whatsappRaw.link || '';
                   %>
                   <div>
                     <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium capitalize <%= chipClass %>">
-                      <span><%= t.platform %></span>
-                      <span class="text-black/40">@<%= t.username %></span>
+                      <span><%= platformLabel %></span>
+                      <% if (targetName) { %><span class="text-black/40"><%= targetName %></span><% } %>
                       <span><%= icon %></span>
                     </span>
-                    <% if (t.status === 'failed' && t.error_message) { %>
+                    <% if ((t.status === 'failed' || t.status === 'failed_to_prepare') && t.error_message) { %>
                       <p class="mt-0.5 max-w-[240px] truncate text-xs text-red-500" title="<%= t.error_message %>"><%= t.error_message %></p>
                     <% } %>
                     <% if (t.platform === 'pinterest' && t.status === 'success' && t.remote_post_id) { %>
@@ -74,6 +85,42 @@
                           <button type="submit" class="rounded border border-red-200 px-2 py-0.5 text-xs font-medium text-red-600 hover:bg-red-50">Delete Pin</button>
                         </form>
                       <% } %>
+                    <% } %>
+                    <% if (isWhatsapp && manualStatuses.includes(t.status) && whatsappRaw.requires_manual_confirmation) { %>
+                      <details class="mt-1 rounded-md border border-teal-100 bg-teal-50/40 p-2 text-xs text-black/70">
+                        <summary class="cursor-pointer font-medium text-teal-700">WhatsApp assisted actions</summary>
+                        <div class="mt-2 space-y-2" data-whatsapp-panel data-target-id="<%= t.id %>" data-open-url="/posts/targets/<%= t.id %>/whatsapp/opened">
+                          <script type="application/json" data-whatsapp-payload><%- JSON.stringify({ caption: whatsappCaption, link: whatsappLink, media: whatsappMedia }).replace(/</g, '\\u003c') %></script>
+                          <% if (firstWhatsappMedia) { %>
+                            <div class="flex items-center gap-2">
+                              <% if (firstWhatsappMedia.thumbnail_path) { %>
+                                <img src="/<%= firstWhatsappMedia.thumbnail_path %>" class="h-12 w-12 rounded object-cover" alt="">
+                              <% } else { %>
+                                <div class="flex h-12 w-12 items-center justify-center rounded bg-black/5 text-[10px] text-black/40">Media</div>
+                              <% } %>
+                              <div class="min-w-0">
+                                <p class="truncate font-medium"><%= firstWhatsappMedia.original_name || 'Prepared media' %></p>
+                                <p class="text-black/45"><%= whatsappMedia.length %> file<%= whatsappMedia.length === 1 ? '' : 's' %> prepared</p>
+                              </div>
+                            </div>
+                          <% } %>
+                          <p class="line-clamp-2 text-black/55"><%= whatsappCaption || 'No caption' %></p>
+                          <p class="text-black/45">Select your Channel and confirm the update inside WhatsApp. Opening WhatsApp does not mark this as published.</p>
+                          <div class="flex flex-wrap gap-1.5">
+                            <button type="button" class="rounded border border-teal-200 px-2 py-1 font-medium text-teal-700 hover:bg-white" data-whatsapp-copy>Copy caption</button>
+                            <% whatsappMedia.forEach(function(m, idx) { %>
+                              <a href="/<%= m.file_path %>" download class="rounded border border-black/10 px-2 py-1 font-medium text-black/60 hover:bg-white">Download <%= idx + 1 %></a>
+                            <% }) %>
+                            <button type="button" class="rounded border border-teal-200 px-2 py-1 font-medium text-teal-700 hover:bg-white" data-whatsapp-share>Open/Share to WhatsApp</button>
+                            <% if (t.status !== 'published_manually') { %>
+                              <form method="post" action="/posts/targets/<%= t.id %>/whatsapp/mark-published" data-confirm="Mark this WhatsApp Channel post as manually published?">
+                                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                <button type="submit" class="rounded bg-teal-600 px-2 py-1 font-medium text-white hover:bg-teal-700">Mark as published</button>
+                              </form>
+                            <% } %>
+                          </div>
+                        </div>
+                      </details>
                     <% } %>
                   </div>
                 <% }) %>
@@ -103,7 +150,7 @@
                        class="rounded border border-black/15 px-2 py-0.5 text-xs">
                 <button type="submit" class="rounded bg-mint px-2 py-0.5 text-xs font-medium text-white">Save</button>
                 <button type="button" data-hide="sched-form-<%= post.id %>"
-                        class="rounded border border-black/15 px-2 py-0.5 text-xs">✕</button>
+                        class="rounded border border-black/15 px-2 py-0.5 text-xs">X</button>
               </form>
             <% } else { %>
               <span data-utc-label="<%= new Date(post.scheduled_for || post.created_at).toISOString() %>"></span>

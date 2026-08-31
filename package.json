@@ -11,7 +11,8 @@
     "css:build": "tailwindcss -i ./public/css/input.css -o ./public/css/app.css --minify",
     "css:watch": "tailwindcss -i ./public/css/input.css -o ./public/css/app.css --watch",
     "db:schema": "psql \"$DATABASE_URL\" -f database/schema.sql",
-    "lint": "node --check server.js && node --check app.js"
+    "lint": "node --check server.js && node --check app.js",
+    "test": "node tests/whatsappChannelService.test.js"
   },
   "dependencies": {
     "axios": "^1.7.9",

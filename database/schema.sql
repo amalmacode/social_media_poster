@@ -16,9 +16,9 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expire ON user_sessions(expire);
 
-CREATE TYPE publish_status AS ENUM ('pending', 'processing', 'success', 'failed');
-CREATE TYPE post_status AS ENUM ('draft', 'pending', 'processing', 'partial_success', 'success', 'failed');
-CREATE TYPE platform_type AS ENUM ('instagram', 'facebook', 'pinterest', 'youtube', 'tiktok');
+CREATE TYPE publish_status AS ENUM ('pending', 'processing', 'success', 'failed', 'ready_to_publish', 'opened_in_whatsapp', 'published_manually', 'failed_to_prepare');
+CREATE TYPE post_status AS ENUM ('draft', 'pending', 'processing', 'manual_action_required', 'partial_success', 'success', 'failed');
+CREATE TYPE platform_type AS ENUM ('instagram', 'facebook', 'pinterest', 'youtube', 'tiktok', 'whatsapp_channel');
 
 CREATE TABLE IF NOT EXISTS connected_accounts (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),

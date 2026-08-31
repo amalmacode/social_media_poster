@@ -7,6 +7,18 @@ const youtubeService = require('../services/platforms/youtubeService');
 const tiktokService = require('../services/platforms/tiktokService');
 const { env } = require('../config/env');
 
+function normalizeWhatsAppChannelUrl(url) {
+  const value = (url || '').trim();
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
 async function index(req, res, next) {
   try {
     const [accounts, brandAccounts] = await Promise.all([
@@ -443,6 +455,49 @@ async function refreshPinterestBoards(req, res, next) {
   }
 }
 
+async function addWhatsAppChannel(req, res, next) {
+  try {
+    const channelName = (req.body.channelName || '').trim();
+    const channelUrl = normalizeWhatsAppChannelUrl(req.body.channelUrl);
+    const defaultCaption = (req.body.defaultCaption || '').trim();
+
+    if (!channelName) {
+      req.flash('error', 'WhatsApp Channel name is required.');
+      return res.redirect('/accounts');
+    }
+    if (!channelUrl) {
+      req.flash('error', 'Enter a valid WhatsApp Channel link starting with https://');
+      return res.redirect('/accounts');
+    }
+    if (!/whatsapp\.com\/channel\//i.test(channelUrl)) {
+      req.flash('error', 'Use a WhatsApp Channel link, for example https://whatsapp.com/channel/...');
+      return res.redirect('/accounts');
+    }
+
+    await accountModel.upsert({
+      userId: req.user.id,
+      platform: 'whatsapp_channel',
+      platformUserId: channelUrl,
+      username: channelName,
+      accessToken: 'manual-assisted-publishing',
+      refreshToken: null,
+      expiresAt: null,
+      metadata: {
+        channelUrl,
+        defaultCaption,
+        authFlow: 'manual_assisted',
+        requiresManualConfirmation: true,
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    req.flash('success', `WhatsApp Channel added: ${channelName}`);
+    res.redirect('/accounts');
+  } catch (error) {
+    next(error);
+  }
+}
+
 function connectTikTok(req, res) {
   if (!env.tiktok.clientKey || !env.tiktok.clientSecret) {
     req.flash('error', 'Set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET in .env first.');
@@ -532,6 +587,7 @@ module.exports = {
   connectPinterestToken,
   pinterestTokenConnect,
   refreshPinterestBoards,
+  addWhatsAppChannel,
   connectTikTok,
   tiktokCallback,
   debugInstagramPages,

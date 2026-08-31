@@ -145,11 +145,13 @@
               const platformColor = {
                 instagram:'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
                 facebook:'bg-blue-600 text-white', pinterest:'bg-[#E60023] text-white',
-                youtube:'bg-[#FF0000] text-white', tiktok:'bg-[#010101] text-white'
+                youtube:'bg-[#FF0000] text-white', tiktok:'bg-[#010101] text-white',
+                whatsapp_channel:'bg-[#25D366] text-ink'
               };
               const platformLabel = {
                 instagram:'Instagram', facebook:'Facebook Page',
-                pinterest:'Pinterest', youtube:'YouTube', tiktok:'TikTok'
+                pinterest:'Pinterest', youtube:'YouTube', tiktok:'TikTok',
+                whatsapp_channel:'WhatsApp Channel'
               };
             %>
             <label class="flex cursor-pointer flex-col rounded-md border border-black/10 px-3 py-3 has-[:checked]:border-mint has-[:checked]:bg-emerald-50">
@@ -184,6 +186,13 @@
             <% }) %>
           </div>
         </details>
+        <label class="mt-3 flex cursor-pointer items-start justify-between gap-3 rounded-md border border-black/10 px-3 py-3 has-[:checked]:border-mint has-[:checked]:bg-emerald-50">
+          <span>
+            <span class="flex items-center gap-2 text-sm font-semibold"><span aria-hidden="true">WA</span> WhatsApp Channel</span>
+            <span class="mt-1 block text-xs text-black/55">Assisted publishing. We prepare the caption and media, then you complete the post in WhatsApp.</span>
+          </span>
+          <input type="checkbox" name="whatsappChannel" value="1" data-platform="whatsapp_channel" <%= prefill && prefill.whatsappChannel ? 'checked' : '' %>>
+        </label>
       <% } else { %>
         <div class="mt-2 grid gap-2 sm:grid-cols-2">
           <% accounts.forEach(function(account) { %>
@@ -192,8 +201,15 @@
               <input type="checkbox" name="accounts" value="<%= account.id %>" data-platform="<%= account.platform %>">
             </label>
           <% }) %>
+          <label class="flex cursor-pointer items-start justify-between gap-3 rounded-md border border-black/10 px-3 py-3 has-[:checked]:border-mint has-[:checked]:bg-emerald-50">
+            <span>
+              <span class="flex items-center gap-2 text-sm font-semibold"><span aria-hidden="true">WA</span> WhatsApp Channel</span>
+              <span class="mt-1 block text-xs text-black/55">Assisted publishing. We prepare the caption and media, then you complete the post in WhatsApp.</span>
+            </span>
+            <input type="checkbox" name="whatsappChannel" value="1" data-platform="whatsapp_channel" <%= prefill && prefill.whatsappChannel ? 'checked' : '' %>>
+          </label>
         </div>
-        <% if (!accounts.length) { %><p class="mt-2 text-sm text-black/55">Connect accounts before publishing.</p><% } %>
+        <% if (!accounts.length) { %><p class="mt-2 text-sm text-black/55">Connect accounts before publishing automatically, or use WhatsApp Channel assisted publishing.</p><% } %>
         <p class="mt-2 text-xs text-black/40"><a href="/accounts" class="underline">Create a brand account</a> to group platforms together.</p>
       <% } %>
     </div>
@@ -247,6 +263,19 @@
         <input name="pinterestDestinationUrl" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" placeholder="https://..." value="<%= prefill ? (prefill.pinterest.destinationUrl || '') : '' %>">
         <label class="mt-3 block text-sm font-medium">Description</label>
         <textarea name="pinterestDescription" rows="3" maxlength="500" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2"><%= prefill ? (prefill.pinterest.description || '') : '' %></textarea>
+      </div>
+      <div data-field="whatsapp_channel" class="hidden rounded-md border border-black/10 p-3 sm:col-span-2">
+        <div class="flex items-start gap-3">
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-xs font-bold text-ink">WA</div>
+          <div>
+            <p class="text-sm font-medium">WhatsApp Channel assisted publishing</p>
+            <p class="mt-1 text-xs leading-5 text-black/55">WhatsApp does not currently allow direct Channel publishing through its official API. We will prepare the media and caption, then open WhatsApp for you to select your Channel and publish manually.</p>
+          </div>
+        </div>
+        <label class="mt-3 block text-sm font-medium">WhatsApp caption override</label>
+        <textarea name="whatsappCaption" rows="3" maxlength="5000" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" placeholder="Defaults to main caption"><%= prefill ? (prefill.whatsapp_channel.caption || '') : '' %></textarea>
+        <label class="mt-3 block text-sm font-medium">Optional link</label>
+        <input name="whatsappLink" class="mt-1 w-full rounded-md border border-black/15 px-3 py-2" placeholder="https://..." value="<%= prefill ? (prefill.whatsapp_channel.link || '') : '' %>">
       </div>
     </div>
     <div class="mt-5 rounded-md border border-black/10 p-3">
@@ -364,7 +393,8 @@
   window.__prefill = {
     mediaIds: <%- JSON.stringify(prefill.mediaIds) %>,
     accountIds: <%- JSON.stringify(prefill.accountIds) %>,
-    watermark: <%= prefill.watermark ? 'true' : 'false' %>
+    watermark: <%= prefill.watermark ? 'true' : 'false' %>,
+    whatsappChannel: <%= prefill.whatsappChannel ? 'true' : 'false' %>
   };
   <% } %>
 </script>

@@ -20,6 +20,7 @@
       <%- include('../partials/flash') %>
       <%- body %>
     </main>
+    <script>window.__csrfToken = '<%= csrfToken %>';</script>
     <script src="/public/js/app.js?v=<%= Date.now() %>"></script>
     <footer class="mt-12 border-t border-black/5 py-6 text-center text-xs text-black/30">
       <a href="/privacy" class="hover:text-black/60">Privacy Policy</a>
